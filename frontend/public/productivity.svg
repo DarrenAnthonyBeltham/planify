@@ -1,0 +1,9 @@
+<!-- public/productivity.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- background square with rounded corners -->
+  <rect width="64" height="64" rx="12" fill="#4F46E5"/>
+  <!-- checklist line -->
+  <path d="M20 24h24" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+  <!-- checkmark -->
+  <path d="M20 40l10 10 18-18" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
