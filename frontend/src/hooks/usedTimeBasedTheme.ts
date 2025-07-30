@@ -1,15 +1,15 @@
-export type Theme = "Morning" | "Afternoon" | "Night" | "Dawn"
+export type Theme = "morning" | "afternoon" | "night" | "dawn"
 
 export function usedTimeBasedTheme() : Theme {
     const hour = new Date().getHours();
 
     if (hour >= 2 && hour < 6) {
-        return "Dawn"
+        return "dawn"
     } else if (hour >= 6 && hour < 15) {
-        return "Morning"
+        return "morning"
     } else if (hour >= 15 && hour < 20) {
-        return "Afternoon"
+        return "afternoon"
     } else {
-        return "Night"
+        return "night"
     }
 }
