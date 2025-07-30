@@ -1,0 +1,35 @@
+@import 'tailwindcss';
+
+@layer base {
+  .theme-sunny {
+    --color-bg: 207 90% 96%;
+    --color-surface: 0 0% 100%;
+    --color-text-primary: 206 82% 23%;
+    --color-text-secondary: 203 76% 56%;
+    --color-accent: 33 94% 57%;
+  }
+
+  .theme-afternoon {
+    --color-bg: 24 94% 92%;
+    --color-surface: 39 86% 96%;
+    --color-text-primary: 16 63% 25%;
+    --color-text-secondary: 24 82% 56%;
+    --color-accent: 358 75% 58%;
+  }
+
+  .theme-night {
+    --color-bg: 222 39% 11%;
+    --color-surface: 223 33% 17%;
+    --color-text-primary: 210 40% 98%;
+    --color-text-secondary: 217 91% 60%;
+    --color-accent: 54 96% 72%;
+  }
+
+  .theme-dawn {
+    --color-bg: 275 69% 94%;
+    --color-surface: 300 100% 98%;
+    --color-text-primary: 274 37% 33%;
+    --color-text-secondary: 275 62% 60%;
+    --color-accent: 333 87% 65%;
+  }
+}
