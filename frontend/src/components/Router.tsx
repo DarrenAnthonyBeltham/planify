@@ -9,14 +9,18 @@ export function Router() {
     const handleHashChange = () => {
       setHash(window.location.hash);
     };
+
     window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
   }, []);
 
   const parts = hash.replace(/^#\/?|\/$/g, '').split('/');
 
   if (parts[0] === 'project' && parts[1]) {
-    return <ProjectPage projectId={parts[1]} />;
+    const projectId = parts[1];
+    return <ProjectPage projectId={projectId} />;
   }
 
   return <HomePage />;
