@@ -1,4 +1,5 @@
-import { Home, CheckSquare, Bell, Settings, X } from "lucide-react";
+import { Home, CheckSquare, Bell, Settings, X, LogOut } from "lucide-react";
+import { useAuth } from "../../contexts/authContext";
 
 interface SidebarProps {
     isOpen: boolean;
@@ -6,6 +7,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
+  const { logout } = useAuth(); 
   const links = [
     { name: 'Dashboard', icon: <Home size={20} />, active: true },
     { name: 'My Tasks', icon: <CheckSquare size={20} />, active: false },
@@ -42,14 +44,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
                     const target = e.target as HTMLImageElement;
                     target.onerror = null;
                     target.src = " ";
-                }}
-                />
+                }}/>
 
                 <div>
                     <p className="font-semibold text-primary text-sm">Darren</p>
                     <a href="#" className="text-xs text-secondary hover:text-accent">View Profile</a>
                 </div>
             </div>
+            <button
+              onClick={logout}
+              className="flex w-full items-center gap-3 px-4 py-3 rounded-lg text-secondary hover:bg-accent/10 hover:text-primary transition-colors duration-200">
+              <LogOut size={20} />
+              <span className="font-medium">Logout</span>
+            </button>
         </div>
       </aside>
     </>
