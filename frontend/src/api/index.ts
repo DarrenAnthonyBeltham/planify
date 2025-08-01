@@ -40,15 +40,10 @@ export interface LoginCredentials {
 export async function loginUser(credentials: LoginCredentials): Promise<{ token: string }> {
   const response = await fetch(`${API_BASE_URL}/login`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(credentials),
   });
-
-  if (!response.ok) {
-    throw new Error('Login failed');
-  }
+  if (!response.ok) { throw new Error('Login failed'); }
   return response.json();
 }
 
@@ -56,9 +51,7 @@ export async function fetchProjectById(id: string): Promise<any> {
   const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
     headers: getAuthHeaders(),
   });
-  if (!response.ok) {
-    throw new Error("Failed to fetch project details");
-  }
+  if (!response.ok) { throw new Error("Failed to fetch project details"); }
   return response.json();
 }
 
@@ -67,8 +60,18 @@ export async function searchUsers(query: string): Promise<User[]> {
   const response = await fetch(`${API_BASE_URL}/users/search?q=${encodeURIComponent(query)}`, {
     headers: getAuthHeaders(),
   });
+  if (!response.ok) { throw new Error("Failed to search users"); }
+  return response.json();
+}
+
+export async function updateTaskPosition(taskId: string, boardId: string, position: number) {
+  const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/move`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ boardId: parseInt(boardId, 10), position }),
+  });
   if (!response.ok) {
-    throw new Error("Failed to search users");
+    throw new Error("Failed to update task position");
   }
   return response.json();
 }

@@ -28,16 +28,18 @@ func main() {
 
 	projectRepo := &repository.ProjectRepository{DB: db}
 	userRepo := &repository.UserRepository{DB: db}
+	taskRepo := &repository.TaskRepository{DB: db}
 	
 	projectHandler := &handler.ProjectHandler{Repo: projectRepo}
 	authHandler := &handler.AuthHandler{UserRepo: userRepo} 
 	userHandler := &handler.UserHandler{Repo: userRepo} 
+	taskHandler := &handler.TaskHandler{Repo: taskRepo}
 
 	router := gin.Default()
 
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"}, 
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -51,6 +53,7 @@ func main() {
 		api.GET("/projects", projectHandler.GetAllProjects)
 		api.GET("/projects/:id", projectHandler.GetProjectByID)
 		api.GET("/users/search", userHandler.SearchUsers)
+		api.PATCH("/tasks/:id/move", taskHandler.UpdateTaskPosition)
 	}
 
 	fmt.Println("Backend server is running on http://localhost:8080")
