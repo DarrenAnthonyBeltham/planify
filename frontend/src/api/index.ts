@@ -64,11 +64,11 @@ export async function searchUsers(query: string): Promise<User[]> {
   return response.json();
 }
 
-export async function updateTaskPosition(taskId: string, boardId: string, position: number) {
+export async function updateTaskPosition(taskId: string, statusId: string, position: number) {
   const response = await fetch(`${API_BASE_URL}/tasks/${taskId}/move`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ boardId: parseInt(boardId, 10), position }),
+    body: JSON.stringify({ statusId: parseInt(statusId, 10), position }),
   });
   if (!response.ok) {
     throw new Error("Failed to update task position");

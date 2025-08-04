@@ -9,12 +9,12 @@ type TaskRepository struct {
 }
 
 type UpdateTaskPayload struct {
-	BoardID  int `json:"boardId"`
+	StatusID int `json:"statusId"`
 	Position int `json:"position"`
 }
 
 func (r *TaskRepository) UpdatePosition(taskID int, payload UpdateTaskPayload) error {
-	query := "UPDATE tasks SET board_id = ?, position = ? WHERE id = ?"
-	_, err := r.DB.Exec(query, payload.BoardID, payload.Position, taskID)
+	query := "UPDATE tasks SET status_id = ?, position = ? WHERE id = ?"
+	_, err := r.DB.Exec(query, payload.StatusID, payload.Position, taskID)
 	return err
 }

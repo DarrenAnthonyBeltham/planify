@@ -32,16 +32,16 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 	projectData := make(map[string]interface{})
 
 	var name, description string
-	var dueDate sql.NullString 
+	var createdAt sql.NullTime
 	query := "SELECT name, description, created_at FROM projects WHERE id = ?"
-	err := r.DB.QueryRow(query, id).Scan(&name, &description, &dueDate)
+	err := r.DB.QueryRow(query, id).Scan(&name, &description, &createdAt)
 	if err != nil {
 		return nil, err
 	}
 	projectData["id"] = id
 	projectData["name"] = name
 	projectData["description"] = description
-	projectData["dueDate"] = dueDate.String
+	projectData["createdAt"] = createdAt.Time
 
 	var team []model.User
 	memberQuery := `
@@ -49,14 +49,14 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 		FROM users u
 		JOIN project_members pm ON u.id = pm.user_id
 		WHERE pm.project_id = ?`
-	rows, err := r.DB.Query(memberQuery, id)
+	memberRows, err := r.DB.Query(memberQuery, id)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	for rows.Next() {
+	defer memberRows.Close()
+	for memberRows.Next() {
 		var user model.User
-		if err := rows.Scan(&user.ID, &user.Name, &user.Email); err != nil {
+		if err := memberRows.Scan(&user.ID, &user.Name, &user.Email); err != nil {
 			return nil, err
 		}
 		team = append(team, user)
@@ -64,68 +64,53 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 	projectData["team"] = team
 
 	var columns []map[string]interface{}
-	boardQuery := "SELECT id, title FROM boards WHERE project_id = ? ORDER BY position"
-	boardRows, err := r.DB.Query(boardQuery, id)
+	statusQuery := "SELECT id, title FROM statuses ORDER BY position"
+	statusRows, err := r.DB.Query(statusQuery)
 	if err != nil {
 		return nil, err
 	}
-	defer boardRows.Close()
+	defer statusRows.Close()
 
-	for boardRows.Next() {
-		var boardID int
-		var boardTitle string
-		if err := boardRows.Scan(&boardID, &boardTitle); err != nil {
+	tasksByStatus := make(map[int][]map[string]interface{})
+
+	taskQuery := `
+		SELECT id, status_id, title, description, position 
+		FROM tasks 
+		WHERE project_id = ?`
+	taskRows, err := r.DB.Query(taskQuery, id)
+	if err != nil {
+		return nil, err
+	}
+	defer taskRows.Close()
+
+	for taskRows.Next() {
+		var taskID, statusID, position int
+		var title, description string
+		if err := taskRows.Scan(&taskID, &statusID, &title, &description, &position); err != nil {
 			return nil, err
 		}
 
-		var tasks []map[string]interface{}
-		taskQuery := "SELECT id, title, description FROM tasks WHERE board_id = ? ORDER BY position"
-		taskRows, err := r.DB.Query(taskQuery, boardID)
-		if err != nil {
+		taskData := map[string]interface{}{
+			"id":          taskID,
+			"title":       title,
+			"description": description,
+			"position":    position,
+			"assignees":   []model.User{}, 
+		}
+		tasksByStatus[statusID] = append(tasksByStatus[statusID], taskData)
+	}
+
+	for statusRows.Next() {
+		var statusID int
+		var statusTitle string
+		if err := statusRows.Scan(&statusID, &statusTitle); err != nil {
 			return nil, err
 		}
 		
-		for taskRows.Next() {
-			var taskID int
-			var taskTitle, taskDesc string
-			if err := taskRows.Scan(&taskID, &taskTitle, &taskDesc); err != nil {
-				return nil, err
-			}
-			
-			var assignees []model.User
-			assigneeQuery := `
-				SELECT u.id, u.name, u.email
-				FROM users u
-				JOIN task_assignees ta ON u.id = ta.user_id
-				WHERE ta.task_id = ?`
-			assigneeRows, err := r.DB.Query(assigneeQuery, taskID)
-			if err != nil {
-				return nil, err
-			}
-			for assigneeRows.Next() {
-				var user model.User
-				if err := assigneeRows.Scan(&user.ID, &user.Name, &user.Email); err != nil {
-					return nil, err
-				}
-				assignees = append(assignees, user)
-			}
-			assigneeRows.Close()
-
-
-			taskData := map[string]interface{}{
-				"id":          taskID,
-				"title":       taskTitle,
-				"description": taskDesc,
-				"assignees":   assignees,
-			}
-			tasks = append(tasks, taskData)
-		}
-		taskRows.Close()
-
 		columnData := map[string]interface{}{
-			"id":    boardID,
-			"title": boardTitle,
-			"tasks": tasks,
+			"id":    statusID,
+			"title": statusTitle,
+			"tasks": tasksByStatus[statusID],
 		}
 		columns = append(columns, columnData)
 	}
