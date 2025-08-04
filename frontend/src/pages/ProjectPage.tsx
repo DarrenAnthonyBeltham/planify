@@ -3,7 +3,7 @@ import { fetchProjectById, updateTaskPosition } from '../api';
 import { ProjectHeader } from '../components/board/projectHeader';
 import { BoardColumn } from '../components/board/boardColumn';
 import { DndContext, closestCorners, PointerSensor, useSensor, useSensors, DragOverlay, defaultDropAnimationSideEffects, type DropAnimation} from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext } from '@dnd-kit/sortable';
 import { createPortal } from 'react-dom';
 import { TaskCard } from '../components/board/taskCard';
@@ -52,64 +52,83 @@ export function ProjectPage({ projectId }: { projectId: string }) {
     }
   }, [project]);
 
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
+  const handleDragOver = useCallback((event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over || !project) return;
+    
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    
+    if (activeId === overId) return;
+
+    setProject((prev: any) => {
+      if (!prev) return null;
+
+      const activeColumn = findColumnContainingTask(activeId, prev);
+      let overColumn = prev.columns.find((col: any) => String(col.id) === overId) || findColumnContainingTask(overId, prev);
+      
+      if (!activeColumn || !overColumn || activeColumn.id === overColumn.id) return prev;
+
+      const activeTaskIndex = activeColumn.tasks.findIndex((task: any) => String(task.id) === activeId);
+      if (activeTaskIndex === -1) return prev;
+
+      let newProjectState = JSON.parse(JSON.stringify(prev));
+      const [movedTask] = newProjectState.columns.find((c: any) => c.id === activeColumn.id).tasks.splice(activeTaskIndex, 1);
+      
+      const overCol = newProjectState.columns.find((c: any) => c.id === overColumn.id);
+      if (!Array.isArray(overCol.tasks)) overCol.tasks = [];
+
+      const overTaskIndex = overCol.tasks.findIndex((task: any) => String(task.id) === overId);
+      const insertIndex = overTaskIndex !== -1 ? overTaskIndex : overCol.tasks.length;
+      overCol.tasks.splice(insertIndex, 0, movedTask);
+      
+      return newProjectState;
+    });
+  }, [project]);
+
+  const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setActiveTask(null);
     const { active, over } = event;
-    
     if (!over || !project) return;
 
     const activeId = String(active.id);
     const overId = String(over.id);
-
-    if (activeId === overId) return;
-
-    const originalState = JSON.parse(JSON.stringify(project));
 
     const activeColumn = findColumnContainingTask(activeId, project);
     let overColumn = project.columns.find((col: any) => String(col.id) === overId) || findColumnContainingTask(overId, project);
 
     if (!activeColumn || !overColumn) return;
 
-    let newProjectState = JSON.parse(JSON.stringify(project));
-    const activeColIndex = newProjectState.columns.findIndex((c: any) => c.id === activeColumn.id);
-    const overColIndex = newProjectState.columns.findIndex((c: any) => c.id === overColumn.id);
-    const activeTaskIndex = activeColumn.tasks.findIndex((t: any) => String(t.id) === activeId);
-
     if (activeColumn.id === overColumn.id) {
-      const overTaskIndex = overColumn.tasks.findIndex((t: any) => String(t.id) === overId);
-      if (activeTaskIndex !== -1 && overTaskIndex !== -1) {
-        newProjectState.columns[activeColIndex].tasks = arrayMove(
-          newProjectState.columns[activeColIndex].tasks,
-          activeTaskIndex,
-          overTaskIndex
-        );
+      if (activeId !== overId) {
+        const activeTaskIndex = activeColumn.tasks.findIndex((task: any) => String(task.id) === activeId);
+        const overTaskIndex = overColumn.tasks.findIndex((task: any) => String(task.id) === overId);
+        
+        if (activeTaskIndex !== -1 && overTaskIndex !== -1) {
+          const newTasks = arrayMove([...activeColumn.tasks], activeTaskIndex, overTaskIndex);
+          const newColumns = project.columns.map((col: any) => 
+            col.id === activeColumn.id ? { ...col, tasks: newTasks } : col
+          );
+          setProject({ ...project, columns: newColumns });
+          
+          newTasks.forEach((task, index) => {
+            updateTaskPosition(String(task.id), String(activeColumn.id), index).catch(console.error);
+          });
+        }
       }
     } else {
-      const [movedTask] = newProjectState.columns[activeColIndex].tasks.splice(activeTaskIndex, 1);
-      let overTaskIndex = overColumn.tasks?.findIndex((t: any) => String(t.id) === overId);
-      
-      if (overTaskIndex === -1 || overTaskIndex === undefined) {
-        overTaskIndex = newProjectState.columns[overColIndex].tasks?.length || 0;
-      }
-      
-      if (!Array.isArray(newProjectState.columns[overColIndex].tasks)) {
-        newProjectState.columns[overColIndex].tasks = [];
-      }
-      newProjectState.columns[overColIndex].tasks.splice(overTaskIndex, 0, movedTask);
+      const finalTaskIndex = overColumn.tasks.findIndex((task: any) => String(task.id) === activeId);
+      updateTaskPosition(activeId, String(overColumn.id), finalTaskIndex)
+        .catch(err => {
+            console.error("Failed to save task move:", err);
+            fetchProjectById(projectId).then(setProject);
+        });
     }
-
-    setProject(newProjectState);
-
-    const finalOverColumn = newProjectState.columns[overColIndex];
-    const finalTaskIndex = finalOverColumn.tasks.findIndex((t: any) => String(t.id) === activeId);
-
-    updateTaskPosition(activeId, String(finalOverColumn.id), finalTaskIndex)
-      .catch(err => {
-        console.error("Failed to save task move:", err);
-        setProject(originalState);
-      });
-
   }, [project, projectId]);
+
+  const handleProjectUpdate = (updatedProject: any) => {
+    setProject(updatedProject);
+  };
 
   if (loading) return <div className="p-8 text-center text-secondary">Loading project...</div>;
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>;
@@ -117,10 +136,11 @@ export function ProjectPage({ projectId }: { projectId: string }) {
 
   return (
     <div className="p-6 h-full flex flex-col">
-      <ProjectHeader project={project} />
+      <ProjectHeader project={project} onUpdate={handleProjectUpdate} />
       <DndContext 
         sensors={sensors} 
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd} 
         collisionDetection={closestCorners}
       >

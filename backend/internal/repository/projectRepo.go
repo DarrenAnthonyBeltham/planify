@@ -118,3 +118,13 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 
 	return projectData, nil
 }
+
+type UpdateDueDatePayload struct {
+	DueDate sql.NullString `json:"dueDate"` 
+}
+
+func (r *ProjectRepository) UpdateDueDate(projectID int, payload UpdateDueDatePayload) error {
+	query := "UPDATE projects SET due_date = ? WHERE id = ?"
+	_, err := r.DB.Exec(query, payload.DueDate, projectID)
+	return err
+}

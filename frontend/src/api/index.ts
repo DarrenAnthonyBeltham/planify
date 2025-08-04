@@ -75,3 +75,15 @@ export async function updateTaskPosition(taskId: string, statusId: string, posit
   }
   return response.json();
 }
+
+export async function updateProjectDueDate(projectId: string, dueDate: string | null) {
+  const response = await fetch(`${API_BASE_URL}/projects/${projectId}/duedate`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ dueDate }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to update project due date");
+  }
+  return response.json();
+}

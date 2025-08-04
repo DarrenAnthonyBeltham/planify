@@ -37,3 +37,24 @@ func (h *ProjectHandler) GetProjectByID(c *gin.Context) {
 
 	c.JSON(http.StatusOK, project)
 }
+
+func (h *ProjectHandler) UpdateProjectDueDate(c *gin.Context) {
+	projectID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
+
+	var payload repository.UpdateDueDatePayload
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		return
+	}
+
+	if err := h.Repo.UpdateDueDate(projectID, payload); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update due date"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Due date updated successfully"})
+}
