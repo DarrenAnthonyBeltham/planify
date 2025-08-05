@@ -87,3 +87,15 @@ export async function updateProjectDueDate(projectId: string, dueDate: string | 
   }
   return response.json();
 }
+
+export async function createProject(projectData: any) {
+  const response = await fetch(`${API_BASE_URL}/projects`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(projectData),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to create project");
+  }
+  return response.json();
+}

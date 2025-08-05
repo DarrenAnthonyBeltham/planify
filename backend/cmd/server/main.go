@@ -55,6 +55,7 @@ func main() {
 		api.GET("/users/search", userHandler.SearchUsers)
 		api.PATCH("/tasks/:id/move", taskHandler.UpdateTaskPosition)
 		api.PATCH("/projects/:id/duedate", projectHandler.UpdateProjectDueDate)
+		api.POST("/projects", projectHandler.CreateProject)
 	}
 
 	fmt.Println("Backend server is running on http://localhost:8080")

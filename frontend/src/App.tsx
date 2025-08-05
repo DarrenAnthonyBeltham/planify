@@ -1,3 +1,5 @@
+// frontend/src/App.tsx
+
 import { useEffect } from "react";
 import { usedTimeBasedTheme } from "./hooks/usedTimeBasedTheme";
 import { AppLayout } from "./components/layout/AppLayout";
@@ -8,6 +10,11 @@ import { Router } from "./components/Router";
 function App() {
   const theme = usedTimeBasedTheme();
   const { token } = useAuth();
+
+  const handleProjectCreated = (newProject: any) => {
+    window.location.hash = `#/project/${newProject.id}`;
+    window.location.reload();
+  };
 
   useEffect(() => {
     const root = document.documentElement;
@@ -21,7 +28,7 @@ function App() {
 
   return (
     <div className="bg-background text-primary min-h-screen font-sans">
-      <AppLayout>
+      <AppLayout onProjectCreated={handleProjectCreated}>
         <Router />
       </AppLayout>
     </div>

@@ -128,3 +128,56 @@ func (r *ProjectRepository) UpdateDueDate(projectID int, payload UpdateDueDatePa
 	_, err := r.DB.Exec(query, payload.DueDate, projectID)
 	return err
 }
+
+type CreateProjectPayload struct {
+	Name        string         `json:"name" binding:"required"`
+	Description string         `json:"description"`
+	DueDate     sql.NullString `json:"dueDate"`
+	TeamIDs     []int          `json:"teamIds"`
+}
+
+func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project, error) {
+	tx, err := r.DB.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	query := "INSERT INTO projects (name, description, due_date) VALUES (?, ?, ?)"
+	res, err := tx.Exec(query, payload.Name, payload.Description, payload.DueDate)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	projectID, err := res.LastInsertId()
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if len(payload.TeamIDs) > 0 {
+		stmt, err := tx.Prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)")
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		defer stmt.Close()
+		for _, userID := range payload.TeamIDs {
+			_, err := stmt.Exec(projectID, userID)
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
+	newProject := &model.Project{
+		ID:          int(projectID),
+		Name:        payload.Name,
+		Description: payload.Description,
+	}
+	return newProject, nil
+}
