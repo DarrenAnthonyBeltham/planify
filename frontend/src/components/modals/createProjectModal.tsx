@@ -1,100 +1,98 @@
-import { useState, useEffect, useRef } from 'react';
-import { Modal } from './modal';
-import { searchUsers, createProject } from '../../api';
-import { X, Calendar, ChevronLeft } from 'lucide-react';
-import { DayPicker } from 'react-day-picker';
-import 'react-day-picker/dist/style.css';
-import { format } from 'date-fns';
+import { useState, useEffect, useRef } from 'react'
+import { Modal } from './modal'
+import { searchUsers, createProject } from '../../api'
+import { X, Calendar, ChevronLeft } from 'lucide-react'
+import { DayPicker } from 'react-day-picker'
+import 'react-day-picker/dist/style.css'
+import { format } from 'date-fns'
 
-export function CreateProjectModal({ isOpen, onClose, onProjectCreated }: { isOpen: boolean, onClose: () => void, onProjectCreated: (newProject: any) => void }) {
-  const [step, setStep] = useState(1);
-  const [projectName, setProjectName] = useState('');
-  const [description, setDescription] = useState('');
-  const [team, setTeam] = useState<any[]>([]);
-  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isDatePickerOpen, setDatePickerOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const pickerRef = useRef<HTMLDivElement>(null);
+export function CreateProjectModal({ isOpen, onClose, onProjectCreated }: { isOpen: boolean; onClose: () => void; onProjectCreated: (newProject: any) => void }) {
+  const [step, setStep] = useState(1)
+  const [projectName, setProjectName] = useState('')
+  const [description, setDescription] = useState('')
+  const [team, setTeam] = useState<any[]>([])
+  const [dueDate, setDueDate] = useState<Date | undefined>(undefined)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isDatePickerOpen, setDatePickerOpen] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
+  const pickerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (searchTerm.trim() === '') {
-      setSearchResults([]);
-      return;
+      setSearchResults([])
+      return
     }
     const handler = setTimeout(() => {
       searchUsers(searchTerm).then(users => {
-        const teamIds = team.map(t => t.id);
-        setSearchResults(users.filter(u => !teamIds.includes(u.id)));
-      });
-    }, 300);
-    return () => clearTimeout(handler);
-  }, [searchTerm, team]);
+        const ids = new Set(team.map(t => t.id))
+        setSearchResults(users.filter((u: any) => !ids.has(u.id)))
+      })
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [searchTerm, team])
 
   const handleAddMember = (user: any) => {
-    setTeam([...team, user]);
-    setSearchTerm('');
-    setSearchResults([]);
-  };
+    if (team.some(m => m.id === user.id)) return
+    setTeam([...team, user])
+    setSearchTerm('')
+    setSearchResults([])
+  }
 
   const handleRemoveMember = (userId: number) => {
-    setTeam(team.filter(u => u.id !== userId));
-  };
+    setTeam(team.filter(u => u.id !== userId))
+  }
 
   const handleCreateProject = async () => {
-    setIsCreating(true);
+    setIsCreating(true)
     const projectData = {
       name: projectName,
       description,
       dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : null,
-      teamIds: team.map(t => t.id),
-    };
-    try {
-      const newProject = await createProject(projectData);
-      onProjectCreated(newProject);
-      handleClose();
-    } catch (error) {
-      console.error("Failed to create project:", error);
-      // You could show an error message to the user here
-    } finally {
-      setIsCreating(false);
+      teamIds: team.map(t => t.id)
     }
-  };
-  
+    try {
+      const newProject = await createProject(projectData)
+      onProjectCreated(newProject)
+      handleClose()
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   const handleDateSelect = (date: Date | undefined) => {
-    setDueDate(date);
-    setDatePickerOpen(false);
-  };
+    setDueDate(date)
+    setDatePickerOpen(false)
+  }
 
   const resetState = () => {
-    setStep(1);
-    setProjectName('');
-    setDescription('');
-    setTeam([]);
-    setDueDate(undefined);
-    setSearchTerm('');
-    setSearchResults([]);
-    setIsCreating(false);
-  };
+    setStep(1)
+    setProjectName('')
+    setDescription('')
+    setTeam([])
+    setDueDate(undefined)
+    setSearchTerm('')
+    setSearchResults([])
+    setIsCreating(false)
+  }
 
   const handleClose = () => {
-    resetState();
-    onClose();
-  };
-  
+    resetState()
+    onClose()
+  }
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setDatePickerOpen(false);
+        setDatePickerOpen(false)
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title={step === 1 ? "Create New Project" : "Add Details"}>
+    <Modal isOpen={isOpen} onClose={handleClose} title={step === 1 ? 'Create New Project' : 'Add Details'}>
       {step > 1 && (
         <button onClick={() => setStep(s => s - 1)} className="absolute top-4 left-4 text-secondary hover:text-primary">
           <ChevronLeft size={24} />
@@ -150,5 +148,5 @@ export function CreateProjectModal({ isOpen, onClose, onProjectCreated }: { isOp
         )}
       </div>
     </Modal>
-  );
+  )
 }

@@ -1,54 +1,54 @@
-import { createContext, useState, useContext, useEffect } from "react";
-import type { ReactNode } from "react";
-import { loginUser, type LoginCredentials } from "../api";
+import { createContext, useState, useContext, useEffect } from 'react'
+import type { ReactNode } from 'react'
+import { loginUser, type LoginCredentials } from '../api'
+
+const USE_COOKIE_AUTH = (import.meta.env.VITE_COOKIE_AUTH ?? 'false').toLowerCase() === 'true'
 
 interface AuthContextType {
-  token: string | null;
-  login: (credentials: LoginCredentials) => Promise<void>;
-  logout: () => void;
-  isLoading: boolean;
+  token: string | null
+  login: (credentials: LoginCredentials) => Promise<void>
+  logout: () => void
+  isLoading: boolean
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("planify_token"));
-  const [isLoading, setIsLoading] = useState(false);
+  const [token, setToken] = useState<string | null>(() =>
+    USE_COOKIE_AUTH ? null : localStorage.getItem('planify_token')
+  )
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
-    if (token) {
-      localStorage.setItem("planify_token", token);
-    } else {
-      localStorage.removeItem("planify_token");
+    if (!USE_COOKIE_AUTH) {
+      if (token) localStorage.setItem('planify_token', token)
+      else localStorage.removeItem('planify_token')
     }
-  }, [token]);
+  }, [token])
 
   const login = async (credentials: LoginCredentials) => {
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      const { token } = await loginUser(credentials);
-      setToken(token);
-    } catch (error) {
-      console.error("Login failed:", error);
-      throw error;
+      const { token } = await loginUser(credentials)
+      if (!USE_COOKIE_AUTH) setToken(token ?? null)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   const logout = () => {
-    setToken(null);
-  };
+    if (!USE_COOKIE_AUTH) setToken(null)
+  }
 
-  const value = { token, login, logout, isLoading };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ token, login, logout, isLoading }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider')
+  return ctx
 }

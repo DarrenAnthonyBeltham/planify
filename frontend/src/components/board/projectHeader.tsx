@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Calendar, Plus, X, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react'
 import { format } from 'date-fns'
 import { updateProjectDueDate } from '../../api'

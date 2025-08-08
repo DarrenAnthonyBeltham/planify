@@ -18,7 +18,6 @@ func (h *ProjectHandler) GetAllProjects(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch projects"})
 		return
 	}
-
 	c.JSON(http.StatusOK, projects)
 }
 
@@ -28,13 +27,11 @@ func (h *ProjectHandler) GetProjectByID(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
-
 	project, err := h.Repo.GetByID(id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
 		return
 	}
-
 	c.JSON(http.StatusOK, project)
 }
 
@@ -44,18 +41,15 @@ func (h *ProjectHandler) UpdateProjectDueDate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
 		return
 	}
-
 	var payload repository.UpdateDueDatePayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
-
 	if err := h.Repo.UpdateDueDate(projectID, payload); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update due date"})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"message": "Due date updated successfully"})
 }
 
@@ -65,12 +59,10 @@ func (h *ProjectHandler) CreateProject(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
-
 	project, err := h.Repo.Create(payload)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
 		return
 	}
-
 	c.JSON(http.StatusCreated, project)
 }

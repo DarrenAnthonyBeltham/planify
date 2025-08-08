@@ -1,21 +1,22 @@
-import { useState, type FormEvent } from "react";
-import { useAuth } from "../contexts/authContext";
+import { useState, type FormEvent } from 'react'
+import { useAuth } from '../contexts/authContext'
 
 export function LoginPage() {
-  const [email, setEmail] = useState("darrenanthonybeltham@gmail.com");
-  const [password, setPassword] = useState("Admin");
-  const [error, setError] = useState<string | null>(null);
-  const { login, isLoading } = useAuth();
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const { login, isLoading } = useAuth()
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
+    e.preventDefault()
+    setError(null)
     try {
-      await login({ email, password });
-    } catch (err) {
-      setError("Failed to log in. Please check your email and password.");
+      await login({ email, password })
+      window.location.hash = '#/'
+    } catch {
+      setError('Failed to log in. Please check your email and password.')
     }
-  };
+  }
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
@@ -54,18 +55,17 @@ export function LoginPage() {
               />
             </div>
           </div>
-
           <div>
             <button
               type="submit"
               disabled={isLoading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-accent hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-accent disabled:bg-accent/50 disabled:cursor-not-allowed"
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
         </form>
       </div>
     </div>
-  );
+  )
 }

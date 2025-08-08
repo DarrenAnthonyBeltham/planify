@@ -1,27 +1,24 @@
-import { useState, useEffect } from 'react';
-import { HomePage } from '../pages/Homepage';
-import { ProjectPage } from '../pages/ProjectPage';
+import { useState, useEffect } from 'react'
+import { HomePage } from '../pages/Homepage'
+import { ProjectPage } from '../pages/ProjectPage'
+import { MyTasksPage } from '../pages/MyTasksPage'
+import { LoginPage } from '../pages/LoginPage'
 
 export function Router() {
-  const [hash, setHash] = useState(window.location.hash);
+  const [hash, setHash] = useState(window.location.hash || '#/')
 
   useEffect(() => {
-    const handleHashChange = () => {
-      setHash(window.location.hash);
-    };
+    const h = () => setHash(window.location.hash || '#/')
+    window.addEventListener('hashchange', h)
+    return () => window.removeEventListener('hashchange', h)
+  }, [])
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => {
-      window.removeEventListener('hashchange', handleHashChange);
-    };
-  }, []);
+  const path = (hash || '#/').replace(/^#\/?/, '')
+  const parts = path.split('/')
 
-  const parts = hash.replace(/^#\/?|\/$/g, '').split('/');
-
-  if (parts[0] === 'project' && parts[1]) {
-    const projectId = parts[1];
-    return <ProjectPage projectId={projectId} />;
-  }
-
-  return <HomePage />;
+  if (!parts[0] || parts[0] === '') return <HomePage />
+  if (parts[0] === 'login') return <LoginPage />
+  if (parts[0] === 'mytasks') return <MyTasksPage />
+  if (parts[0] === 'project' && parts[1]) return <ProjectPage projectId={parts[1]} />
+  return <HomePage />
 }

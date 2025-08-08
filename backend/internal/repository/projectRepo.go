@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"planify/backend/internal/model"
+	"strings"
 )
 
 type ProjectRepository struct {
@@ -33,8 +34,11 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 
 	var name, description string
 	var createdAt sql.NullTime
-	query := "SELECT name, description, created_at FROM projects WHERE id = ?"
-	err := r.DB.QueryRow(query, id).Scan(&name, &description, &createdAt)
+	var dueDate sql.NullString
+	err := r.DB.QueryRow(
+		"SELECT name, description, due_date, created_at FROM projects WHERE id = ?",
+		id,
+	).Scan(&name, &description, &dueDate, &createdAt)
 	if err != nil {
 		return nil, err
 	}
@@ -42,14 +46,18 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 	projectData["name"] = name
 	projectData["description"] = description
 	projectData["createdAt"] = createdAt.Time
+	if dueDate.Valid {
+		projectData["due_date"] = dueDate.String
+	} else {
+		projectData["due_date"] = nil
+	}
 
 	var team []model.User
-	memberQuery := `
-		SELECT u.id, u.name, u.email 
+	memberRows, err := r.DB.Query(`
+		SELECT u.id, u.name, u.email
 		FROM users u
 		JOIN project_members pm ON u.id = pm.user_id
-		WHERE pm.project_id = ?`
-	memberRows, err := r.DB.Query(memberQuery, id)
+		WHERE pm.project_id = ?`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +72,7 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 	projectData["team"] = team
 
 	var columns []map[string]interface{}
-	statusQuery := "SELECT id, title FROM statuses ORDER BY position"
-	statusRows, err := r.DB.Query(statusQuery)
+	statusRows, err := r.DB.Query("SELECT id, title FROM statuses ORDER BY position")
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +80,10 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 
 	tasksByStatus := make(map[int][]map[string]interface{})
 
-	taskQuery := `
-		SELECT id, status_id, title, description, position 
-		FROM tasks 
-		WHERE project_id = ?`
-	taskRows, err := r.DB.Query(taskQuery, id)
+	taskRows, err := r.DB.Query(`
+		SELECT id, status_id, title, description, position
+		FROM tasks
+		WHERE project_id = ?`, id)
 	if err != nil {
 		return nil, err
 	}
@@ -89,13 +95,12 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 		if err := taskRows.Scan(&taskID, &statusID, &title, &description, &position); err != nil {
 			return nil, err
 		}
-
 		taskData := map[string]interface{}{
 			"id":          taskID,
 			"title":       title,
 			"description": description,
 			"position":    position,
-			"assignees":   []model.User{}, 
+			"assignees":   []model.User{},
 		}
 		tasksByStatus[statusID] = append(tasksByStatus[statusID], taskData)
 	}
@@ -106,7 +111,6 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 		if err := statusRows.Scan(&statusID, &statusTitle); err != nil {
 			return nil, err
 		}
-		
 		columnData := map[string]interface{}{
 			"id":    statusID,
 			"title": statusTitle,
@@ -120,20 +124,25 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 }
 
 type UpdateDueDatePayload struct {
-	DueDate sql.NullString `json:"dueDate"` 
+	DueDate *string `json:"dueDate"`
 }
 
 func (r *ProjectRepository) UpdateDueDate(projectID int, payload UpdateDueDatePayload) error {
-	query := "UPDATE projects SET due_date = ? WHERE id = ?"
-	_, err := r.DB.Exec(query, payload.DueDate, projectID)
+	var arg interface{}
+	if payload.DueDate != nil && strings.TrimSpace(*payload.DueDate) != "" {
+		arg = *payload.DueDate
+	} else {
+		arg = nil
+	}
+	_, err := r.DB.Exec("UPDATE projects SET due_date = ? WHERE id = ?", arg, projectID)
 	return err
 }
 
 type CreateProjectPayload struct {
-	Name        string         `json:"name" binding:"required"`
-	Description string         `json:"description"`
-	DueDate     sql.NullString `json:"dueDate"`
-	TeamIDs     []int          `json:"teamIds"`
+	Name        string  `json:"name" binding:"required"`
+	Description string  `json:"description"`
+	DueDate     *string `json:"dueDate"`
+	TeamIDs     []int   `json:"teamIds"`
 }
 
 func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project, error) {
@@ -142,8 +151,15 @@ func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project
 		return nil, err
 	}
 
-	query := "INSERT INTO projects (name, description, due_date) VALUES (?, ?, ?)"
-	res, err := tx.Exec(query, payload.Name, payload.Description, payload.DueDate)
+	var due interface{}
+	if payload.DueDate != nil && strings.TrimSpace(*payload.DueDate) != "" {
+		due = *payload.DueDate
+	} else {
+		due = nil
+	}
+
+	res, err := tx.Exec("INSERT INTO projects (name, description, due_date) VALUES (?, ?, ?)",
+		payload.Name, payload.Description, due)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -162,8 +178,7 @@ func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project
 		}
 		defer stmt.Close()
 		for _, userID := range payload.TeamIDs {
-			_, err := stmt.Exec(projectID, userID)
-			if err != nil {
+			if _, err := stmt.Exec(projectID, userID); err != nil {
 				tx.Rollback()
 				return nil, err
 			}

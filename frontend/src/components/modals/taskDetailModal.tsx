@@ -1,45 +1,39 @@
-import { useState, useEffect } from 'react';
-import { Modal } from './modal';
-import { CheckSquare, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react'
+import { Modal } from './modal'
 
-export function TaskDetailModal({ isOpen, onClose, task, projectMembers, onUpdateTask }: any) {
-  const [currentTask, setCurrentTask] = useState(task);
-  const [newSubTask, setNewSubTask] = useState('');
+export function TaskDetailModal({ isOpen, onClose, task, projectMembers = [], onUpdateTask }: any) {
+  const [currentTask, setCurrentTask] = useState(task)
+  const [newSubTask, setNewSubTask] = useState('')
 
   useEffect(() => {
-    setCurrentTask(task);
-  }, [task]);
+    setCurrentTask(task)
+  }, [task])
 
-  if (!isOpen || !currentTask) return null;
+  if (!isOpen || !currentTask) return null
 
-  const handleAssigneeChange = (memberId: number) => {
-    const newAssignees = currentTask.assignees.includes(memberId)
-      ? currentTask.assignees.filter((id: number) => id !== memberId)
-      : [...currentTask.assignees, memberId];
-    const updatedTask = { ...currentTask, assignees: newAssignees };
-    onUpdateTask(updatedTask);
-  };
-
-  const handleSubTaskToggle = (subTaskId: string) => {
-    const newSubTasks = currentTask.subTasks.map((st: any) => 
-      st.id === subTaskId ? { ...st, completed: !st.completed } : st
-    );
-    const updatedTask = { ...currentTask, subTasks: newSubTasks };
-    onUpdateTask(updatedTask);
-  };
-
-  const handleAddSubTask = () => {
-    if (newSubTask.trim() === '') return;
-    const subTask = { id: `sub-${Date.now()}`, text: newSubTask, completed: false };
-    const updatedTask = { ...currentTask, subTasks: [...currentTask.subTasks, subTask] };
-    onUpdateTask(updatedTask);
-    setNewSubTask('');
-  };
-  
-  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const updatedTask = { ...currentTask, description: e.target.value };
-      onUpdateTask(updatedTask);
+  const toggleAssignee = (memberId: number) => {
+    const prev = Array.isArray(currentTask.assignees) ? currentTask.assignees : []
+    const next = prev.includes(memberId) ? prev.filter((id: number) => id !== memberId) : [...prev, memberId]
+    onUpdateTask({ ...currentTask, assignees: next })
   }
+
+  const toggleSubTask = (subTaskId: string) => {
+    const list = Array.isArray(currentTask.subTasks) ? currentTask.subTasks : []
+    const next = list.map((st: any) => (st.id === subTaskId ? { ...st, completed: !st.completed } : st))
+    onUpdateTask({ ...currentTask, subTasks: next })
+  }
+
+  const addSubTask = () => {
+    const text = newSubTask.trim()
+    if (!text) return
+    const list = Array.isArray(currentTask.subTasks) ? currentTask.subTasks : []
+    const subTask = { id: `sub-${Date.now()}`, text, completed: false }
+    onUpdateTask({ ...currentTask, subTasks: [...list, subTask] })
+    setNewSubTask('')
+  }
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) =>
+    onUpdateTask({ ...currentTask, description: e.target.value })
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={currentTask.title}>
@@ -59,8 +53,8 @@ export function TaskDetailModal({ isOpen, onClose, task, projectMembers, onUpdat
           <label key={member.id} className="flex items-center gap-3 cursor-pointer p-2 rounded-md hover:bg-board">
             <input
               type="checkbox"
-              checked={currentTask.assignees.includes(member.id)}
-              onChange={() => handleAssigneeChange(member.id)}
+              checked={Array.isArray(currentTask.assignees) && currentTask.assignees.includes(member.id)}
+              onChange={() => toggleAssignee(member.id)}
             />
             <img className="w-8 h-8 rounded-full" src={member.avatar} alt={member.name} />
             <span className="text-sm text-primary">{member.name}</span>
@@ -69,23 +63,28 @@ export function TaskDetailModal({ isOpen, onClose, task, projectMembers, onUpdat
       </div>
       <div className="mt-4">
         <h4 className="font-semibold text-primary mb-2">Checklist</h4>
-        {currentTask.subTasks.map((st: any) => (
-          <div key={st.id} className="flex items-center gap-2 p-1 rounded hover:bg-board">
-             <input type="checkbox" checked={st.completed} onChange={() => handleSubTaskToggle(st.id)} />
-             <span className={`flex-grow text-primary ${st.completed ? 'line-through text-secondary' : ''}`}>{st.text}</span>
-          </div>
-        ))}
+        {Array.isArray(currentTask.subTasks) &&
+          currentTask.subTasks.map((st: any) => (
+            <div key={st.id} className="flex items-center gap-2 p-1 rounded hover:bg-board">
+              <input type="checkbox" checked={st.completed} onChange={() => toggleSubTask(st.id)} />
+              <span className={`flex-grow text-primary ${st.completed ? 'line-through text-secondary' : ''}`}>
+                {st.text}
+              </span>
+            </div>
+          ))}
         <div className="flex gap-2 mt-2">
-            <input
-              type="text"
-              value={newSubTask}
-              onChange={(e) => setNewSubTask(e.target.value)}
-              placeholder="Add an item"
-              className="flex-grow p-2 rounded-md bg-board border border-secondary/20 text-primary"
-            />
-            <button onClick={handleAddSubTask} className="bg-accent text-white px-4 rounded-md">Add</button>
+          <input
+            type="text"
+            value={newSubTask}
+            onChange={(e) => setNewSubTask(e.target.value)}
+            placeholder="Add an item"
+            className="flex-grow p-2 rounded-md bg-board border border-secondary/20 text-primary"
+          />
+          <button onClick={addSubTask} className="bg-accent text-white px-4 rounded-md">
+            Add
+          </button>
         </div>
       </div>
     </Modal>
-  );
+  )
 }
