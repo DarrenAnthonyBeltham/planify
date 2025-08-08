@@ -72,8 +72,8 @@ func (r *UserRepository) GetTasksByUserID(userID int) ([]model.UserTask, error) 
 			return nil, err
 		}
 		if due.Valid {
-			val := due.String
-			task.DueDate = &val
+			v := due.String
+			task.DueDate = &v
 		} else {
 			task.DueDate = nil
 		}

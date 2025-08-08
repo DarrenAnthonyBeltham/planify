@@ -2,7 +2,7 @@ import { TaskCard } from './taskCard';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 
-export function BoardColumn({ column, onAddTask, onTaskClick }: any) {
+export function BoardColumn({ column, onAddTask }: any) {
   const { setNodeRef } = useDroppable({ id: column.id });
   const tasks = Array.isArray(column.tasks) ? column.tasks : [];
   const taskIds = tasks.map((task: any) => task.id);
@@ -24,12 +24,9 @@ export function BoardColumn({ column, onAddTask, onTaskClick }: any) {
         <span className="text-sm font-medium bg-surface text-secondary px-2 py-1 rounded-md">{tasks.length}</span>
       </div>
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-        <div 
-          ref={setNodeRef} 
-          className="task-list min-h-[100px] flex-grow overflow-y-auto px-2 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent"
-        >
+        <div ref={setNodeRef} className="task-list min-h-[100px] flex-grow overflow-y-auto px-2 scrollbar-thin scrollbar-thumb-accent/50 scrollbar-track-transparent">
           {tasks.map((task: any) => (
-            <TaskCard key={task.id} task={task} onClick={() => onTaskClick(task)} />
+            <TaskCard key={task.id} task={task} />
           ))}
         </div>
       </SortableContext>

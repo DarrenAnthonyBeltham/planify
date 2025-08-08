@@ -32,3 +32,19 @@ func (h *TaskHandler) UpdateTaskPosition(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Task position updated successfully"})
 }
+
+func (h *TaskHandler) GetTaskByID(c *gin.Context) {
+	taskID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID"})
+		return
+	}
+
+	task, err := h.Repo.GetByID(taskID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, task)
+}

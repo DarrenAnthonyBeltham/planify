@@ -18,7 +18,7 @@ func main() {
 	dsn := "root:@tcp(127.0.0.1:3306)/planify?parseTime=true"
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
-		log.Fatal("Failed to open database connection:", err)
+		log.Fatal(err)
 	}
 	defer db.Close()
 	db.Ping()
@@ -57,6 +57,7 @@ func main() {
 		api.GET("/users/search", userHandler.SearchUsers)
 		api.GET("/me/tasks", userHandler.GetMyTasks)
 
+		api.GET("/tasks/:id", taskHandler.GetTaskByID)
 		api.PATCH("/tasks/:id/move", taskHandler.UpdateTaskPosition)
 	}
 

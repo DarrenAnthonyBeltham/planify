@@ -21,6 +21,18 @@ export interface UserTask {
   dueDate: string | null
 }
 
+export interface TaskDetail {
+  id: number
+  title: string
+  description: string
+  projectId: number
+  projectName: string
+  statusId: number
+  statusName: string
+  dueDate: string | null
+  assignees: User[]
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080/api"
 
 export async function fetchProjects(): Promise<Project[]> {
@@ -91,5 +103,11 @@ export async function fetchMyTasks(userId?: number): Promise<UserTask[]> {
   const qs = userId ? `?userId=${userId}` : ""
   const res = await fetch(`${API_BASE_URL}/me/tasks${qs}`, { headers: { "Content-Type": "application/json" } })
   if (!res.ok) throw new Error("Failed to fetch tasks")
+  return res.json()
+}
+
+export async function fetchTaskById(id: string): Promise<TaskDetail> {
+  const res = await fetch(`${API_BASE_URL}/tasks/${id}`, { headers: { "Content-Type": "application/json" } })
+  if (!res.ok) throw new Error("Failed to fetch task")
   return res.json()
 }
