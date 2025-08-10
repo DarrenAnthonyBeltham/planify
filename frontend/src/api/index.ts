@@ -24,7 +24,7 @@ export interface UserTask {
 export interface TaskDetail {
   id: number
   title: string
-  description: string
+  description: string | null
   projectId: number
   projectName: string
   statusId: number
