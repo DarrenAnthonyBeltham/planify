@@ -36,6 +36,8 @@ func main() {
 
 	router := gin.Default()
 
+	router.StaticFS("/uploads", http.Dir("uploads"))
+
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
@@ -58,7 +60,17 @@ func main() {
 		api.GET("/me/tasks", userHandler.GetMyTasks)
 
 		api.GET("/tasks/:id", taskHandler.GetTaskByID)
+		api.PATCH("/tasks/:id", taskHandler.UpdateTaskFields)
 		api.PATCH("/tasks/:id/move", taskHandler.UpdateTaskPosition)
+
+		api.POST("/tasks/:id/assignees", taskHandler.AddAssigneeByQuery)
+		api.POST("/tasks/:id/collaborators", taskHandler.AddCollaboratorByQuery)
+
+		api.GET("/tasks/:id/comments", taskHandler.ListComments)
+		api.POST("/tasks/:id/comments", taskHandler.AddComment)
+
+		api.POST("/tasks/:id/attachments", taskHandler.UploadAttachment)
+		api.GET("/tasks/:id/attachments", taskHandler.ListAttachments)
 	}
 
 	fmt.Println("Backend server is running on http://localhost:8080")
