@@ -2,16 +2,13 @@ package handler
 
 import (
 	"net/http"
-	"os"
-	"strings"
 	"time"
-
-	"planify/backend/internal/config"
-	"planify/backend/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"golang.org/x/crypto/bcrypt"
+
+	"planify/backend/internal/config"
+	"planify/backend/internal/repository"
 )
 
 type LoginPayload struct {
@@ -24,35 +21,22 @@ type AuthHandler struct {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	var payload LoginPayload
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request payload"})
+	var p LoginPayload
+	if err := c.ShouldBindJSON(&p); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
 		return
 	}
-	user, err := h.UserRepo.GetUserByEmail(payload.Email)
-	if err != nil || user == nil {
+	u, err := h.UserRepo.GetUserByEmail(p.Email)
+	if err != nil || u == nil || u.Password != p.Password {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 		return
 	}
-	if strings.HasPrefix(user.Password, "$2") {
-		if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(payload.Password)); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
-			return
-		}
-	} else {
-		if user.Password != payload.Password {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
-			return
-		}
-		if hash, err := bcrypt.GenerateFromPassword([]byte(payload.Password), bcrypt.DefaultCost); err == nil {
-			_ = h.UserRepo.UpdatePasswordHash(user.ID, string(hash))
-		}
-	}
-	ttl := config.AccessTokenTTL()
+
 	now := time.Now()
+	ttl := config.AccessTokenTTL()
 	claims := jwt.MapClaims{
-		"uid":   user.ID,
-		"email": user.Email,
+		"uid":   u.ID,         
+		"email": u.Email,
 		"iat":   now.Unix(),
 		"exp":   now.Add(ttl).Unix(),
 	}
@@ -62,34 +46,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "could not create token"})
 		return
 	}
-	if config.TokenInCookie {
-		secure := strings.EqualFold(os.Getenv("COOKIE_SECURE"), "true")
-		var sameSite http.SameSite
-		switch strings.ToLower(os.Getenv("COOKIE_SAMESITE")) {
-		case "strict":
-			sameSite = http.SameSiteStrictMode
-		case "none":
-			sameSite = http.SameSiteNoneMode
-		default:
-			sameSite = http.SameSiteLaxMode
-		}
-		http.SetCookie(c.Writer, &http.Cookie{
-			Name:     "access_token",
-			Value:    signed,
-			Path:     "/",
-			HttpOnly: true,
-			Secure:   secure,
-			SameSite: sameSite,
-			Domain:   os.Getenv("COOKIE_DOMAIN"),
-			Expires:  now.Add(ttl),
-			MaxAge:   int(ttl / time.Second),
-		})
-	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"token":       signed,
-		"token_type":  "Bearer",
-		"expires_in":  int(ttl / time.Second),
-		"user_id":     user.ID,
-		"email":       user.Email,
+		"token":      signed,
+		"token_type": "Bearer",
+		"expires_in": int(ttl / time.Second),
+		"user_id":    u.ID,
+		"email":      u.Email,
 	})
 }

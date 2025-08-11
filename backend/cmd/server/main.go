@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"planify/backend/internal/api/handler"
-	"planify/backend/internal/repository"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
+
+	"planify/backend/internal/api/handler"
+	"planify/backend/internal/api/middleware"
+	"planify/backend/internal/repository"
 )
 
 func main() {
@@ -21,9 +23,9 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
-	db.Ping()
-
-	fmt.Println("Successfully connected to the MySQL database!")
+	if err := db.Ping(); err != nil {
+		log.Fatal(err)
+	}
 
 	projectRepo := &repository.ProjectRepository{DB: db}
 	userRepo := &repository.UserRepository{DB: db}
@@ -34,11 +36,13 @@ func main() {
 	userHandler := &handler.UserHandler{Repo: userRepo}
 	taskHandler := &handler.TaskHandler{Repo: taskRepo}
 
-	router := gin.Default()
+	r := gin.Default()
 
-	router.StaticFS("/uploads", http.Dir("uploads"))
+	// serve uploaded avatars/files
+	r.StaticFS("/uploads", http.Dir("uploads"))
 
-	router.Use(cors.New(cors.Config{
+	// CORS for Vite dev server
+	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
@@ -46,33 +50,45 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	api := router.Group("/api")
+	api := r.Group("/api")
 	{
 		api.POST("/login", authHandler.Login)
 		api.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "UP"}) })
 
-		api.GET("/projects", projectHandler.GetAllProjects)
-		api.GET("/projects/:id", projectHandler.GetProjectByID)
-		api.POST("/projects", projectHandler.CreateProject)
-		api.PATCH("/projects/:id/duedate", projectHandler.UpdateProjectDueDate)
+		auth := api.Group("") 
+		auth.Use(middleware.AuthMiddleware())
+		{
+			// projects
+			auth.GET("/projects", projectHandler.GetAllProjects)
+			auth.GET("/projects/:id", projectHandler.GetProjectByID)
+			auth.POST("/projects", projectHandler.CreateProject)
+			auth.PATCH("/projects/:id/duedate", projectHandler.UpdateProjectDueDate)
 
-		api.GET("/users/search", userHandler.SearchUsers)
-		api.GET("/me/tasks", userHandler.GetMyTasks)
+			// users/tasks for current user
+			auth.GET("/users/search", userHandler.SearchUsers)
+			auth.GET("/me/tasks", userHandler.GetMyTasks)
 
-		api.GET("/tasks/:id", taskHandler.GetTaskByID)
-		api.PATCH("/tasks/:id", taskHandler.UpdateTaskFields)
-		api.PATCH("/tasks/:id/move", taskHandler.UpdateTaskPosition)
+			// tasks
+			auth.GET("/tasks/:id", taskHandler.GetTaskByID)
+			auth.PATCH("/tasks/:id/move", taskHandler.UpdateTaskPosition)
+			auth.PATCH("/tasks/:id", taskHandler.UpdateTaskFields)
+			auth.POST("/tasks/:id/assignees", taskHandler.AddAssigneeByQuery)
+			auth.POST("/tasks/:id/collaborators", taskHandler.AddCollaboratorByQuery)
+			auth.GET("/tasks/:id/comments", taskHandler.ListComments)
+			auth.POST("/tasks/:id/comments", taskHandler.AddComment)
+			auth.GET("/tasks/:id/attachments", taskHandler.ListAttachments)
+			auth.POST("/tasks/:id/attachments", taskHandler.UploadAttachment)
 
-		api.POST("/tasks/:id/assignees", taskHandler.AddAssigneeByQuery)
-		api.POST("/tasks/:id/collaborators", taskHandler.AddCollaboratorByQuery)
-
-		api.GET("/tasks/:id/comments", taskHandler.ListComments)
-		api.POST("/tasks/:id/comments", taskHandler.AddComment)
-
-		api.POST("/tasks/:id/attachments", taskHandler.UploadAttachment)
-		api.GET("/tasks/:id/attachments", taskHandler.ListAttachments)
+			// profile
+			auth.GET("/me", userHandler.GetMe)
+			auth.PATCH("/me", userHandler.PatchMe)
+			auth.POST("/me/avatar", userHandler.UploadAvatar)
+			auth.PATCH("/me/password", userHandler.ChangePassword)
+		}
 	}
 
 	fmt.Println("Backend server is running on http://localhost:8080")
-	router.Run(":8080")
+	if err := r.Run(":8080"); err != nil {
+		log.Fatal(err)
+	}
 }

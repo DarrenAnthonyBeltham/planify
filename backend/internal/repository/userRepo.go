@@ -2,7 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"errors"
 	"planify/backend/internal/model"
 )
 
@@ -12,13 +11,32 @@ type UserRepository struct {
 
 func (r *UserRepository) GetUserByEmail(email string) (*model.User, error) {
 	var u model.User
-	err := r.DB.QueryRow(
-		"SELECT id, name, email, password, created_at FROM users WHERE email = ?",
-		email,
-	).Scan(&u.ID, &u.Name, &u.Email, &u.Password, &u.CreatedAt)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+	// avatar may be NULL → coalesce to empty string
+	q := `
+		SELECT id, name, email, COALESCE(avatar, ''), password, created_at
+		FROM users
+		WHERE email = ?
+	`
+	err := r.DB.QueryRow(q, email).Scan(
+		&u.ID, &u.Name, &u.Email, &u.Avatar, &u.Password, &u.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
 	}
+	return &u, nil
+}
+
+func (r *UserRepository) GetByID(id int) (*model.User, error) {
+	var u model.User
+	// avatar may be NULL → coalesce to empty string
+	q := `
+		SELECT id, name, email, COALESCE(avatar, ''), password, created_at
+		FROM users
+		WHERE id = ?
+	`
+	err := r.DB.QueryRow(q, id).Scan(
+		&u.ID, &u.Name, &u.Email, &u.Avatar, &u.Password, &u.CreatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -27,17 +45,21 @@ func (r *UserRepository) GetUserByEmail(email string) (*model.User, error) {
 
 func (r *UserRepository) SearchUsers(query string) ([]model.User, error) {
 	var users []model.User
-	rows, err := r.DB.Query(
-		"SELECT id, name, email FROM users WHERE name LIKE ? OR email LIKE ?",
-		"%"+query+"%", "%"+query+"%",
-	)
+	sqlq := `
+		SELECT id, name, email, COALESCE(avatar, '')
+		FROM users
+		WHERE name LIKE ? OR email LIKE ?
+	`
+	like := "%" + query + "%"
+	rows, err := r.DB.Query(sqlq, like, like)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	for rows.Next() {
 		var u model.User
-		if err := rows.Scan(&u.ID, &u.Name, &u.Email); err != nil {
+		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.Avatar); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -46,19 +68,17 @@ func (r *UserRepository) SearchUsers(query string) ([]model.User, error) {
 }
 
 func (r *UserRepository) GetTasksByUserID(userID int) ([]model.UserTask, error) {
-	rows, err := r.DB.Query(`
-		SELECT
-			t.id, t.title,
-			p.id, p.name,
-			s.title,
-			p.due_date
+	query := `
+		SELECT t.id, t.title, p.id, p.name, s.title, pr.due_date
 		FROM tasks t
-		LEFT JOIN task_assignees ta ON ta.task_id = t.id
+		JOIN task_assignees ta ON t.id = ta.task_id
 		JOIN projects p ON t.project_id = p.id
 		JOIN statuses s ON t.status_id = s.id
-		WHERE ta.user_id = ? OR ta.user_id IS NULL
+		LEFT JOIN projects pr ON t.project_id = pr.id
+		WHERE ta.user_id = ?
 		ORDER BY p.name, t.id
-	`, userID)
+	`
+	rows, err := r.DB.Query(query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -67,22 +87,30 @@ func (r *UserRepository) GetTasksByUserID(userID int) ([]model.UserTask, error) 
 	var tasks []model.UserTask
 	for rows.Next() {
 		var task model.UserTask
-		var due sql.NullString
-		if err := rows.Scan(&task.ID, &task.Title, &task.ProjectID, &task.ProjectName, &task.StatusName, &due); err != nil {
+		if err := rows.Scan(
+			&task.ID, &task.Title, &task.ProjectID, &task.ProjectName, &task.StatusName, &task.DueDate,
+		); err != nil {
 			return nil, err
-		}
-		if due.Valid {
-			v := due.String
-			task.DueDate = &v
-		} else {
-			task.DueDate = nil
 		}
 		tasks = append(tasks, task)
 	}
 	return tasks, nil
 }
 
-func (r *UserRepository) UpdatePasswordHash(id int, bcryptHash string) error {
-	_, err := r.DB.Exec("UPDATE users SET password = ? WHERE id = ?", bcryptHash, id)
+func (r *UserRepository) UpdatePasswordHash(id int, hash string) error {
+	_, err := r.DB.Exec("UPDATE users SET password = ? WHERE id = ?", hash, id)
+	return err
+}
+
+func (r *UserRepository) UpdateProfile(id int, name, email string) (*model.User, error) {
+	_, err := r.DB.Exec("UPDATE users SET name = ?, email = ? WHERE id = ?", name, email, id)
+	if err != nil {
+		return nil, err
+	}
+	return r.GetByID(id)
+}
+
+func (r *UserRepository) UpdateAvatar(id int, url string) error {
+	_, err := r.DB.Exec("UPDATE users SET avatar = ? WHERE id = ?", url, id)
 	return err
 }
