@@ -48,18 +48,14 @@ func (r *TaskRepository) GetByID(taskID int) (*model.TaskDetail, error) {
 	if desc.Valid {
 		v := desc.String
 		td.Description = &v
-	} else {
-		td.Description = nil
 	}
 	if due.Valid {
 		v := due.String
 		td.DueDate = &v
-	} else {
-		td.DueDate = nil
 	}
 
 	ar, err := r.DB.Query(`
-		SELECT u.id, u.name, u.email
+		SELECT u.id, u.name, u.email, COALESCE(u.avatar,'')
 		FROM users u
 		JOIN task_assignees ta ON ta.user_id = u.id
 		WHERE ta.task_id = ?
@@ -70,14 +66,14 @@ func (r *TaskRepository) GetByID(taskID int) (*model.TaskDetail, error) {
 	defer ar.Close()
 	for ar.Next() {
 		var u model.User
-		if err := ar.Scan(&u.ID, &u.Name, &u.Email); err != nil {
+		if err := ar.Scan(&u.ID, &u.Name, &u.Email, &u.Avatar); err != nil {
 			return nil, err
 		}
 		td.Assignees = append(td.Assignees, u)
 	}
 
 	cr, err := r.DB.Query(`
-		SELECT u.id, u.name, u.email
+		SELECT u.id, u.name, u.email, COALESCE(u.avatar,'')
 		FROM users u
 		JOIN task_collaborators tc ON tc.user_id = u.id
 		WHERE tc.task_id = ?
@@ -88,7 +84,7 @@ func (r *TaskRepository) GetByID(taskID int) (*model.TaskDetail, error) {
 	defer cr.Close()
 	for cr.Next() {
 		var u model.User
-		if err := cr.Scan(&u.ID, &u.Name, &u.Email); err != nil {
+		if err := cr.Scan(&u.ID, &u.Name, &u.Email, &u.Avatar); err != nil {
 			return nil, err
 		}
 		td.Collaborators = append(td.Collaborators, u)
@@ -203,9 +199,8 @@ func (r *TaskRepository) ListAttachments(taskID int) ([]model.Attachment, error)
 func (r *TaskRepository) ListComments(taskID int) ([]model.TaskComment, error) {
 	rows, err := r.DB.Query(`
 		SELECT
-			c.id, c.text,
-			DATE_FORMAT(c.created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at,
-			u.id, u.name, u.email
+			c.id, c.text, DATE_FORMAT(c.created_at, '%Y-%m-%dT%H:%i:%sZ'),
+			u.id, u.name, u.email, COALESCE(u.avatar,'')
 		FROM task_comments c
 		LEFT JOIN users u ON u.id = c.user_id
 		WHERE c.task_id = ?
@@ -224,12 +219,13 @@ func (r *TaskRepository) ListComments(taskID int) ([]model.TaskComment, error) {
 		var uid sql.NullInt64
 		var name sql.NullString
 		var email sql.NullString
-		if err := rows.Scan(&id, &text, &created, &uid, &name, &email); err != nil {
+		var avatar sql.NullString
+		if err := rows.Scan(&id, &text, &created, &uid, &name, &email, &avatar); err != nil {
 			return nil, err
 		}
 		var author *model.User
 		if uid.Valid {
-			author = &model.User{ID: int(uid.Int64), Name: name.String, Email: email.String}
+			author = &model.User{ID: int(uid.Int64), Name: name.String, Email: email.String, Avatar: avatar.String}
 		}
 		out = append(out, model.TaskComment{
 			ID:        id,

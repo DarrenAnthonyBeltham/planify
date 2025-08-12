@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
-import { changePassword, getMe, updateMe, uploadAvatar } from "../api"
+import { changePassword, getMe, updateMe, uploadAvatar, type User } from "../api"
+
+const PLACEHOLDER = "https://placehold.co/160x160?text=User"
 
 function normalizeAvatarUrl(url?: string | null) {
   if (!url) return null
@@ -25,7 +27,7 @@ export function ProfilePage() {
     setLoading(true)
     setError(null)
     getMe()
-      .then((u) => {
+      .then((u: User) => {
         setName(u.name || "")
         setEmail(u.email || "")
         const stored = localStorage.getItem("planify_avatar_url")
@@ -39,7 +41,7 @@ export function ProfilePage() {
   const uploadNewAvatar = async (file: File) => {
     setError(null); setNotice(null)
     try {
-      const { url } = await uploadAvatar(file)   
+      const { url } = await uploadAvatar(file)
       setAvatar(url)
       localStorage.setItem("planify_avatar_url", url)
       setTimeout(() => setAvatar(u => (u ? `${u}?t=${Date.now()}` : u)), 100)
@@ -62,15 +64,11 @@ export function ProfilePage() {
       <div className="bg-surface border border-secondary/10 rounded-xl p-6 mb-8">
         <div className="flex items-center gap-5">
           <div className="w-20 h-20 rounded-full bg-board overflow-hidden">
-            {avatar ? (
-              <img
-                src={avatar}
-                className="w-full h-full object-cover"
-                onError={(e) =>
-                  ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/160x160?text=User")
-                }
-              />
-            ) : null}
+            <img
+              src={avatar || PLACEHOLDER}
+              className="w-full h-full object-cover"
+              onError={(e) => ((e.currentTarget as HTMLImageElement).src = PLACEHOLDER)}
+            />
           </div>
           <label className="px-3 py-2 rounded-md border border-secondary/20 hover:bg-board cursor-pointer text-sm">
             <input
@@ -112,7 +110,7 @@ export function ProfilePage() {
             onClick={async () => {
               setSaving(true)
               try {
-                const u = await updateMe({ name, email })
+                const u: User = await updateMe({ name, email })
                 setName(u.name || "")
                 setEmail(u.email || "")
                 setNotice("Profile updated")

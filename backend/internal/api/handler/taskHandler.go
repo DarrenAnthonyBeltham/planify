@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"time"
@@ -80,8 +81,8 @@ func (h *TaskHandler) UploadAttachment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing file"})
 		return
 	}
-	ts := time.Now().UnixNano()
-	stored := strconv.FormatInt(ts, 10) + "_" + filepath.Base(file.Filename)
+	_ = os.MkdirAll("uploads", 0o755)
+	stored := strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + filepath.Base(file.Filename)
 	if err := c.SaveUploadedFile(file, filepath.Join("uploads", stored)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return

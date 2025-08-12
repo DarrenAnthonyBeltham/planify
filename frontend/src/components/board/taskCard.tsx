@@ -1,43 +1,40 @@
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { CheckSquare, MessageSquare, Paperclip } from 'lucide-react';
+import { MessageSquare, Paperclip } from "lucide-react"
 
-export function TaskCard({ task }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+type Priority = "Low" | "Medium" | "High" | "Urgent"
 
-  const assignees = Array.isArray(task.assignees) ? task.assignees : [];
-  const subTasks = Array.isArray(task.subTasks) ? task.subTasks : [];
-  const completedSubTasks = subTasks.filter((st: any) => st.completed).length;
+export function TaskCard({ task }: { task: any }) {
+  const commentsCount = typeof task.commentsCount === "number"
+    ? task.commentsCount
+    : Array.isArray(task.comments) ? task.comments.length : 0
 
-  const tags = [
-    { text: 'In Progress', color: 'bg-blue-200 text-blue-800' },
-    { text: 'High Priority', color: 'bg-red-200 text-red-800' },
-  ];
+  const attachmentsCount = typeof task.attachmentsCount === "number"
+    ? task.attachmentsCount
+    : Array.isArray(task.attachments) ? task.attachments.length : 0
+
+  const priorityClass =
+    task.priority === "Urgent" ? "bg-red-100 text-red-800" :
+    task.priority === "High" ? "bg-rose-100 text-rose-800" :
+    task.priority === "Medium" ? "bg-yellow-100 text-yellow-800" :
+    task.priority === "Low" ? "bg-green-100 text-green-800" : ""
 
   return (
-    <a href={`#/task/${task.id}`} ref={setNodeRef} style={style} {...attributes} {...listeners}
-      className="block bg-surface p-3 rounded-md shadow-sm border border-secondary/10 cursor-pointer mb-3">
-      <h4 className="font-semibold text-primary mb-2">{task.title}</h4>
-      <div className="flex flex-wrap gap-1 mb-3">
-        {tags.map(tag => (
-          <span key={tag.text} className={`text-xs font-medium px-2 py-0.5 rounded-full ${tag.color}`}>{tag.text}</span>
-        ))}
+    <a
+      href={`#/task/${task.id}`}
+      className="block bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow"
+    >
+      <h3 className="font-semibold text-primary mb-2">{task.title}</h3>
+      <div className="flex gap-2 mb-3">
+        {task.statusName && (
+          <span className="px-2 py-1 text-xs rounded bg-blue-100 text-blue-800">{task.statusName}</span>
+        )}
+        {task.priority && (
+          <span className={`px-2 py-1 text-xs rounded ${priorityClass}`}>{task.priority} Priority</span>
+        )}
       </div>
-      <div className="flex justify-between items-center text-secondary">
-        <div className="flex items-center gap-3 text-sm">
-          {subTasks.length > 0 && (
-            <span className="flex items-center gap-1"><CheckSquare size={14} /> {completedSubTasks}/{subTasks.length}</span>
-          )}
-          <span className="flex items-center gap-1"><MessageSquare size={14} /> 3</span>
-          <span className="flex items-center gap-1"><Paperclip size={14} /> 1</span>
-        </div>
-        <div className="flex items-center -space-x-2">
-          {assignees.map((assigneeId: number) => (
-            <div key={assigneeId} className="w-6 h-6 rounded-full border-2 border-surface bg-gray-300"></div>
-          ))}
-        </div>
+      <div className="flex gap-4 text-secondary text-sm">
+        <span className="flex items-center gap-1"><MessageSquare size={14}/> {commentsCount}</span>
+        <span className="flex items-center gap-1"><Paperclip size={14}/> {attachmentsCount}</span>
       </div>
     </a>
-  );
+  )
 }

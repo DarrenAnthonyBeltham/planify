@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"database/sql"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -52,10 +51,6 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 	}
 	u, err := h.Repo.GetByID(uid.(int))
 	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-			return
-		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user"})
 		return
 	}
@@ -70,8 +65,8 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 func (h *UserHandler) PatchMe(c *gin.Context) {
 	uid, ok := c.Get("userID")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
+	 c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+	 return
 	}
 	var b struct {
 		Name  string `json:"name"`
@@ -96,23 +91,30 @@ func (h *UserHandler) PatchMe(c *gin.Context) {
 
 func (h *UserHandler) UploadAvatar(c *gin.Context) {
 	uidV, ok := c.Get("userID")
-	if !ok { c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"}); return }
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
 	uid := uidV.(int)
 
 	file, err := c.FormFile("file")
-	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Missing file"}); return }
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing file"})
+		return
+	}
 
 	_ = os.MkdirAll("uploads", 0o755)
 	stored := strconv.FormatInt(time.Now().UnixNano(), 10) + "_" + filepath.Base(file.Filename)
 	if err := c.SaveUploadedFile(file, filepath.Join("uploads", stored)); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save"}); return
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save"})
+		return
 	}
-
 	rel := "/uploads/" + stored
 	abs := "http://" + c.Request.Host + rel
 
 	if err := h.Repo.UpdateAvatar(uid, abs); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to persist avatar"}); return
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to persist avatar"})
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"url": abs})
 }

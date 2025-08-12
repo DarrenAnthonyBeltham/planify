@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   fetchTaskById,
   updateTaskFields,
@@ -9,12 +9,23 @@ import {
   uploadAttachment,
   type TaskDetail,
   type TaskComment,
+  type Priority,
 } from "../api"
 import { CheckCircle2, Users, ChevronRight, Paperclip, MessageSquare, Plus } from "lucide-react"
 import { format } from "date-fns"
 import TitleEditor from "../components/task/TitleEditor"
 import DueDatePicker from "../components/task/DueDatePicker"
-import AddPersonDialog from "../components/AddPersonDialog"
+import AddPersonDialog from "../components/task/AddPersonDialog"
+
+function norm(url?: string | null) {
+  if (!url) return ""
+  if (/^https?:\/\//i.test(url)) return url
+  const base = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:8080/api"
+  const origin = base.replace(/\/api\/?$/, "")
+  return url.startsWith("/") ? origin + url : origin + "/" + url
+}
+
+const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Urgent"]
 
 export function TaskPage({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<TaskDetail | null>(null)
@@ -44,6 +55,9 @@ export function TaskPage({ taskId }: { taskId: string }) {
       setLoading(false)
     })
   }, [taskId])
+
+  const commentCount = useMemo(() => comments.length, [comments])
+  const attachmentCount = useMemo(() => (task?.attachments?.length ?? 0), [task])
 
   if (loading) return <div className="p-8 text-center text-secondary">Loading task…</div>
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>
@@ -75,7 +89,7 @@ export function TaskPage({ taskId }: { taskId: string }) {
               })
             }}
           />
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-3">
             <DueDatePicker
               value={task.dueDate}
               onChange={async (next) => {
@@ -89,6 +103,28 @@ export function TaskPage({ taskId }: { taskId: string }) {
                 })
               }}
             />
+            <select
+              className="px-3 py-2 rounded-md border border-secondary/20 bg-board text-primary"
+              value={task.priority || ""}
+              onChange={async (e) => {
+                const next = (e.target.value || null) as Priority | null
+                const updated = await updateTaskFields(taskId, { priority: next as any })
+                setTask({
+                  ...updated,
+                  assignees: updated.assignees ?? [],
+                  collaborators: updated.collaborators ?? [],
+                  attachments: updated.attachments ?? [],
+                  comments: updated.comments ?? [],
+                })
+              }}
+            >
+              <option value="">No priority</option>
+              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <div className="flex items-center gap-4 text-secondary text-sm">
+              <span className="inline-flex items-center gap-1"><MessageSquare className="w-4 h-4"/>{commentCount}</span>
+              <span className="inline-flex items-center gap-1"><Paperclip className="w-4 h-4"/>{attachmentCount}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -130,9 +166,10 @@ export function TaskPage({ taskId }: { taskId: string }) {
                   onClick={async () => {
                     const text = newComment.trim()
                     if (!text) return
-                    await addComment(taskId, { text })
+                    await addComment(taskId, text)
                     setNewComment("")
-                    setComments(await listComments(taskId))
+                    const next = await listComments(taskId)
+                    setComments(next)
                   }}
                 >
                   Add
@@ -147,7 +184,20 @@ export function TaskPage({ taskId }: { taskId: string }) {
               )}
               {(comments ?? []).map((c) => (
                 <div key={c.id} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-accent/20" />
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-board">
+                    {c.author?.avatar ? (
+                      <img
+                        src={norm(c.author.avatar)}
+                        className="w-8 h-8 object-cover"
+                        onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")}
+                      />
+                    ) : (
+                      <img
+                        src="https://placehold.co/64x64?text=U"
+                        className="w-8 h-8 object-cover"
+                      />
+                    )}
+                  </div>
                   <div className="flex-1">
                     <div className="text-sm text-secondary">
                       {c.author?.name ?? "Someone"} • {format(new Date(c.createdAt), "PPp")}
@@ -170,7 +220,20 @@ export function TaskPage({ taskId }: { taskId: string }) {
               {(task.assignees?.length ?? 0) > 0 ? (
                 (task.assignees ?? []).map((a) => (
                   <div key={a.id} className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-accent/20" />
+                    <div className="w-8 h-8 rounded-full overflow-hidden bg-board">
+                      {a.avatar ? (
+                        <img
+                          src={norm(a.avatar)}
+                          className="w-8 h-8 object-cover"
+                          onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")}
+                        />
+                      ) : (
+                        <img
+                          src="https://placehold.co/64x64?text=U"
+                          className="w-8 h-8 object-cover"
+                        />
+                      )}
+                    </div>
                     <span className="text-primary text-sm">{a.name}</span>
                   </div>
                 ))
@@ -188,7 +251,20 @@ export function TaskPage({ taskId }: { taskId: string }) {
             <div className="flex -space-x-2">
               {(task.collaborators?.length ?? 0) > 0 ? (
                 (task.collaborators ?? []).map((a) => (
-                  <div key={a.id} className="w-8 h-8 rounded-full bg-accent/20 border-2 border-surface" title={a.name} />
+                  <div key={a.id} className="w-8 h-8 rounded-full overflow-hidden bg-board border-2 border-surface" title={a.name}>
+                    {a.avatar ? (
+                      <img
+                        src={norm(a.avatar)}
+                        className="w-8 h-8 object-cover"
+                        onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")}
+                      />
+                    ) : (
+                      <img
+                        src="https://placehold.co/64x64?text=U"
+                        className="w-8 h-8 object-cover"
+                      />
+                    )}
+                  </div>
                 ))
               ) : (
                 <span className="text-secondary text-sm">None</span>

@@ -1,16 +1,18 @@
-// ===== Types =====
+export type Priority = "Low" | "Medium" | "High" | "Urgent"
+
 export interface Project {
   id: number
   name: string
   description: string
   createdAt: string
+  dueDate?: string | null
 }
 
 export interface User {
   id: number
   name: string
   email: string
-  avatar?: string
+  avatar?: string | null
 }
 
 export interface UserTask {
@@ -45,209 +47,156 @@ export interface TaskDetail {
   statusId: number
   statusName: string
   dueDate: string | null
+  priority?: Priority | null
   assignees: User[]
   collaborators: User[]
   attachments: Attachment[]
   comments: TaskComment[]
 }
 
-// ===== Config & helpers =====
-const API_BASE_URL =
-  (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080/api"
-
-const API_ORIGIN = new URL(API_BASE_URL).origin
-const abs = (p: string) => (p?.startsWith("http") ? p : new URL(p, API_ORIGIN).toString())
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080/api"
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path}`
-
-  // Merge headers and always inject Authorization if present
   const headers = new Headers(init.headers || {})
   const token = localStorage.getItem("planify_token")
-  if (!(init.body instanceof FormData) && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json")
-  }
-  if (token && !headers.has("Authorization")) {
-    headers.set("Authorization", `Bearer ${token}`)
-  }
-
+  if (!(init.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json")
+  if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`)
   const res = await fetch(url, { ...init, headers })
-
   if (res.status === 401) {
     localStorage.removeItem("planify_token")
     if (!location.hash.startsWith("#/login")) location.hash = "#/login"
     throw new Error("Unauthorized")
   }
-
   if (!res.ok) {
     let msg = await res.text()
     try { msg = JSON.parse(msg).error || msg } catch {}
     throw new Error(msg || `Request failed: ${res.status}`)
   }
-
+  if (res.status === 204) return undefined as unknown as T
   return res.json()
 }
 
-// ===== Auth =====
-export interface LoginCredentials {
-  email: string
-  password: string
-}
+export interface LoginCredentials { email: string; password: string }
 
-export async function loginUser(
-  credentials: LoginCredentials
-): Promise<{ token: string }> {
+export async function loginUser(credentials: LoginCredentials): Promise<{ token: string }> {
   const res = await fetch(`${API_BASE_URL}/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(credentials),
+    body: JSON.stringify(credentials)
   })
-  if (!res.ok) throw new Error("Login failed")
+  if (!res.ok) {
+    let msg = await res.text()
+    try { msg = JSON.parse(msg).error || msg } catch {}
+    throw new Error(msg || "Login failed")
+  }
   const data = await res.json()
   if (data?.token) localStorage.setItem("planify_token", data.token)
   return data
 }
 
-// ===== Projects =====
-export async function fetchProjects(): Promise<Project[]> {
+export async function fetchProjects() {
   return api<Project[]>("/projects")
 }
 
+export async function createProject(payload: { name: string; description?: string; dueDate: string | null; teamIds: number[] }) {
+  return api<Project>("/projects", { method: "POST", body: JSON.stringify(payload) })
+}
+
 export async function fetchProjectById(id: string): Promise<any> {
-  return api<any>(`/projects/${id}`)
+  const p = await api<any>(`/projects/${id}`)
+  if ("due_date" in p) p.dueDate = p.due_date
+  if (Array.isArray(p?.columns)) {
+    p.columns.forEach((c: any) => Array.isArray(c.tasks) && c.tasks.sort((a: any, b: any) => a.position - b.position))
+  }
+  return p
 }
 
-export async function createProject(projectData: any) {
-  return api("/projects", {
-    method: "POST",
-    body: JSON.stringify(projectData),
-  })
+export async function updateProjectDueDate(id: number, dueDate: string | null) {
+  const body = JSON.stringify({ dueDate })
+  const p = await api<any>(`/projects/${id}/due-date`, { method: "PATCH", body })
+  if ("due_date" in p) p.dueDate = p.due_date
+  return p
 }
 
-export async function updateProjectDueDate(
-  projectId: string,
-  dueDate: string | null
-) {
-  return api(`/projects/${projectId}/duedate`, {
-    method: "PATCH",
-    body: JSON.stringify({ dueDate }),
-  })
+export async function fetchTaskById(id: string): Promise<TaskDetail> {
+  const t = await api<TaskDetail>(`/tasks/${id}`)
+  return {
+    ...t,
+    assignees: t.assignees ?? [],
+    collaborators: t.collaborators ?? [],
+    attachments: t.attachments ?? [],
+    comments: t.comments ?? []
+  }
 }
 
-// ===== Users / Me =====
-export async function searchUsers(query: string): Promise<User[]> {
-  if (!query) return []
-  return api<User[]>(`/users/search?q=${encodeURIComponent(query)}`)
+export async function updateTaskFields(
+  id: string,
+  fields: Partial<Pick<TaskDetail, "title" | "description" | "dueDate" | "priority">>
+): Promise<TaskDetail> {
+  return api<TaskDetail>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(fields) })
+}
+
+export async function updateTaskPosition(taskId: string, statusId: string, position: number) {
+  return api(`/tasks/${taskId}/move`, { method: "PATCH", body: JSON.stringify({ statusId: Number(statusId), position }) })
+}
+
+export async function listComments(taskId: string) {
+  return api<TaskComment[]>(`/tasks/${taskId}/comments`)
+}
+
+export async function addComment(taskId: string, text: string) {
+  return api<TaskComment[]>(`/tasks/${taskId}/comments`, { method: "POST", body: JSON.stringify({ text }) })
+}
+
+export async function addAssignee(taskId: string, query: string) {
+  return api(`/tasks/${taskId}/assignees`, { method: "POST", body: JSON.stringify({ query }) })
+}
+
+export async function addCollaborator(taskId: string, query: string) {
+  return api(`/tasks/${taskId}/collaborators`, { method: "POST", body: JSON.stringify({ query }) })
+}
+
+export async function uploadAttachment(taskId: string, file: File) {
+  const fd = new FormData()
+  fd.append("file", file)
+  const token = localStorage.getItem("planify_token")
+  const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/attachments`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd })
+  if (!res.ok) throw new Error("Upload failed")
+  return res.json()
+}
+
+export async function fetchMyTasks() {
+  return api<UserTask[]>("/me/tasks")
+}
+
+export async function searchUsers(query: string, signal?: AbortSignal) {
+  if (!query) return [] as User[]
+  const url = `${API_BASE_URL}/users/search?q=${encodeURIComponent(query)}`
+  const token = localStorage.getItem("planify_token")
+  const res = await fetch(url, { signal, headers: token ? { Authorization: `Bearer ${token}` } : undefined })
+  if (!res.ok) return []
+  const users = await res.json()
+  return users as User[]
 }
 
 export async function getMe(): Promise<User> {
   return api<User>("/me")
 }
 
-export async function updateMe(payload: Partial<Pick<User, "name" | "email">>) {
-  return api<User>("/me", {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  })
+export async function updateMe(patch: { name: string; email: string }): Promise<User> {
+  return api<User>("/me", { method: "PATCH", body: JSON.stringify(patch) })
 }
 
-export async function uploadAvatar(file: File) {
+export async function uploadAvatar(file: File): Promise<{ url: string }> {
   const fd = new FormData()
   fd.append("file", file)
-  const data = await api<{ url: string }>("/me/avatar", {
-    method: "POST",
-    body: fd, // api() will avoid setting Content-Type for FormData
-  })
-  return { url: abs(data.url) }
+  const token = localStorage.getItem("planify_token")
+  const res = await fetch(`${API_BASE_URL}/me/avatar`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd })
+  if (!res.ok) throw new Error("Upload failed")
+  return res.json()
 }
 
 export async function changePassword(newPassword: string) {
-  // matches backend: PATCH /me/password with { newPassword }
-  return api("/me/password", {
-    method: "PATCH",
-    body: JSON.stringify({ newPassword }),
-  })
-}
-
-// ===== Tasks =====
-export async function fetchMyTasks(userId?: number): Promise<UserTask[]> {
-  const qs = userId ? `?userId=${userId}` : ""
-  return api<UserTask[]>(`/me/tasks${qs}`)
-}
-
-export async function fetchTaskById(id: string): Promise<TaskDetail> {
-  return api<TaskDetail>(`/tasks/${id}`)
-}
-
-export async function updateTaskPosition(
-  taskId: string,
-  statusId: string,
-  position: number
-) {
-  return api(`/tasks/${taskId}/move`, {
-    method: "PATCH",
-    body: JSON.stringify({ statusId: parseInt(statusId, 10), position }),
-  })
-}
-
-export async function patchTask(
-  id: string,
-  payload: { title?: string | null; description?: string | null; dueDate?: string | null }
-) {
-  return api(`/tasks/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  })
-}
-
-export async function updateTaskFields(
-  id: string,
-  payload: { title?: string | null; description?: string | null; dueDate?: string | null }
-) {
-  await api(`/tasks/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  })
-  return fetchTaskById(id)
-}
-
-export async function uploadAttachment(taskId: string, file: File) {
-  const fd = new FormData()
-  fd.append("file", file)
-  return api(`/tasks/${taskId}/attachments`, {
-    method: "POST",
-    body: fd,
-  })
-}
-
-export async function fetchAttachments(taskId: string): Promise<Attachment[]> {
-  return api<Attachment[]>(`/tasks/${taskId}/attachments`)
-}
-
-export async function addAssignee(taskId: string, query: string) {
-  return api(`/tasks/${taskId}/assignees`, {
-    method: "POST",
-    body: JSON.stringify({ query }),
-  })
-}
-
-export async function addCollaborator(taskId: string, query: string) {
-  return api(`/tasks/${taskId}/collaborators`, {
-    method: "POST",
-    body: JSON.stringify({ query }),
-  })
-}
-
-export async function listComments(taskId: string): Promise<TaskComment[]> {
-  return api<TaskComment[]>(`/tasks/${taskId}/comments`)
-}
-
-export async function addComment(
-  taskId: string,
-  payload: { authorId?: number; text: string }
-) {
-  return api(`/tasks/${taskId}/comments`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  })
+  return api("/me/password", { method: "PATCH", body: JSON.stringify({ password: newPassword }) })
 }

@@ -26,7 +26,7 @@ export function AddMemberModal({ isOpen, onClose, onAddMember, currentMembers = 
       const controller = new AbortController()
       abortRef.current = controller
       try {
-        const users = await searchUsers(q)
+        const users = await searchUsers(q, controller.signal)
         const ids = new Set(currentMembers.map((m: any) => m.id))
         setResults(users.filter((u: any) => !ids.has(u.id)))
       } catch {
@@ -40,36 +40,20 @@ export function AddMemberModal({ isOpen, onClose, onAddMember, currentMembers = 
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add Member to Project">
-      <input
-        type="text"
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-        className="w-full py-2 px-3 text-primary bg-background border border-secondary/20 rounded-lg"
-        placeholder="Search by name or email..."
-        autoFocus
-      />
-      <div className="mt-4 max-h-60 overflow-y-auto">
-        {loading && <p className="text-secondary text-center">Searching...</p>}
-        {results.map((user) => (
-          <div key={user.id} className="flex items-center justify-between p-2 rounded-md hover:bg-board">
-            <div className="flex items-center gap-2">
-              <img
-                className="w-8 h-8 rounded-full"
-                src={user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}`}
-                alt={user.name}
-              />
-              <span className="text-primary">{user.name}</span>
+      <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-2 mb-3 rounded border border-secondary/20 bg-board text-primary" placeholder="Search by name or email" />
+      {loading && <div className="text-sm text-secondary">Searching…</div>}
+      <div className="max-h-60 overflow-y-auto space-y-2">
+        {results.map((u: any) => (
+          <div key={u.id} className="flex items-center justify-between p-2 rounded border border-secondary/10">
+            <div className="text-sm">
+              <div className="font-medium text-primary">{u.name}</div>
+              <div className="text-secondary">{u.email}</div>
             </div>
-            <button
-              onClick={() => onAddMember(user)}
-              className="text-sm bg-accent text-white px-3 py-1 rounded-md"
-            >
-              Add
-            </button>
+            <button className="px-3 py-1.5 rounded bg-accent text-white" onClick={() => onAddMember(u)}>Add</button>
           </div>
         ))}
-        {!loading && results.length === 0 && searchTerm.trim() !== '' && (
-          <p className="text-secondary text-center">No users found.</p>
+        {!loading && results.length === 0 && searchTerm && (
+          <div className="text-sm text-secondary">No results</div>
         )}
       </div>
     </Modal>
