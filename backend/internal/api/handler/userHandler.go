@@ -65,8 +65,8 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 func (h *UserHandler) PatchMe(c *gin.Context) {
 	uid, ok := c.Get("userID")
 	if !ok {
-	 c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-	 return
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
 	}
 	var b struct {
 		Name  string `json:"name"`
@@ -127,14 +127,51 @@ func (h *UserHandler) ChangePassword(c *gin.Context) {
 	}
 	var b struct {
 		NewPassword string `json:"newPassword"`
+		Password    string `json:"password"`
 	}
-	if err := c.ShouldBindJSON(&b); err != nil || b.NewPassword == "" {
+	if err := c.ShouldBindJSON(&b); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
 		return
 	}
-	if err := h.Repo.UpdatePasswordHash(uid.(int), b.NewPassword); err != nil {
+	pw := b.Password
+	if pw == "" {
+		pw = b.NewPassword
+	}
+	if pw == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing password"})
+		return
+	}
+	if err := h.Repo.UpdatePasswordHash(uid.(int), pw); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to change password"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "ok"})
+}
+
+func (h *UserHandler) GetMySummary(c *gin.Context) {
+	uid, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	s, err := h.Repo.GetSummary(uid.(int))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch summary"})
+		return
+	}
+	c.JSON(http.StatusOK, s)
+}
+
+func (h *UserHandler) GetMyProjects(c *gin.Context) {
+	uid, ok := c.Get("userID")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	list, err := h.Repo.GetMyProjects(uid.(int))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch projects"})
+		return
+	}
+	c.JSON(http.StatusOK, list)
 }

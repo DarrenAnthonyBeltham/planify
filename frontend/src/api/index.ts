@@ -107,7 +107,25 @@ export async function fetchProjectById(id: string): Promise<any> {
   const p = await api<any>(`/projects/${id}`)
   if ("due_date" in p) p.dueDate = p.due_date
   if (Array.isArray(p?.columns)) {
-    p.columns.forEach((c: any) => Array.isArray(c.tasks) && c.tasks.sort((a: any, b: any) => a.position - b.position))
+    p.columns.forEach((c: any) => {
+      if (!Array.isArray(c.tasks)) c.tasks = []
+      c.tasks.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0))
+      c.tasks = c.tasks.map((t: any) => {
+        const commentsCount =
+          typeof t.commentsCount === "number" ? t.commentsCount :
+          typeof t.comments_count === "number" ? t.comments_count :
+          Array.isArray(t.comments) ? t.comments.length : 0
+        const attachmentsCount =
+          typeof t.attachmentsCount === "number" ? t.attachmentsCount :
+          typeof t.attachments_count === "number" ? t.attachments_count :
+          Array.isArray(t.attachments) ? t.attachments.length : 0
+        const priority: Priority | null =
+          (t.priority as Priority | null) ??
+          (t.priority_label as Priority | null) ??
+          null
+        return { ...t, commentsCount, attachmentsCount, priority }
+      })
+    })
   }
   return p
 }
@@ -120,9 +138,10 @@ export async function updateProjectDueDate(id: number, dueDate: string | null) {
 }
 
 export async function fetchTaskById(id: string): Promise<TaskDetail> {
-  const t = await api<TaskDetail>(`/tasks/${id}`)
+  const t: any = await api<TaskDetail>(`/tasks/${id}`)
   return {
     ...t,
+    priority: (t.priority as Priority | null) ?? (t.priority_label as Priority | null) ?? null,
     assignees: t.assignees ?? [],
     collaborators: t.collaborators ?? [],
     attachments: t.attachments ?? [],
@@ -134,7 +153,41 @@ export async function updateTaskFields(
   id: string,
   fields: Partial<Pick<TaskDetail, "title" | "description" | "dueDate" | "priority">>
 ): Promise<TaskDetail> {
-  return api<TaskDetail>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(fields) })
+  const saved: any = await api<TaskDetail>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(fields) })
+  return {
+    ...saved,
+    priority: (saved.priority as Priority | null) ?? (saved.priority_label as Priority | null) ?? (fields.priority ?? null),
+    assignees: saved.assignees ?? [],
+    collaborators: saved.collaborators ?? [],
+    attachments: saved.attachments ?? [],
+    comments: saved.comments ?? []
+  }
+}
+
+/** Robust priority updater that tries common field names used by APIs. */
+export async function updateTaskPriority(id: string, next: Priority | null): Promise<TaskDetail> {
+  const variants = [
+    { priority: next },
+    { priority_label: next },
+    { priorityLabel: next },
+  ]
+  let lastErr: unknown = null
+  for (const body of variants) {
+    try {
+      const saved: any = await api<TaskDetail>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(body) })
+      return {
+        ...saved,
+        priority: (saved.priority as Priority | null) ?? (saved.priority_label as Priority | null) ?? next,
+        assignees: saved.assignees ?? [],
+        collaborators: saved.collaborators ?? [],
+        attachments: saved.attachments ?? [],
+        comments: saved.comments ?? []
+      }
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("Failed to update priority")
 }
 
 export async function updateTaskPosition(taskId: string, statusId: string, position: number) {

@@ -57,12 +57,13 @@ func (h *TaskHandler) UpdateTaskFields(c *gin.Context) {
 		Title       *string `json:"title"`
 		Description *string `json:"description"`
 		DueDate     *string `json:"dueDate"`
+		Priority    *string `json:"priority"`
 	}
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
 		return
 	}
-	if err := h.Repo.UpdateFields(taskID, payload.Title, payload.Description, payload.DueDate); err != nil {
+	if err := h.Repo.UpdateFields(taskID, payload.Title, payload.Description, payload.DueDate, payload.Priority); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task fields"})
 		return
 	}

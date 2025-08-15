@@ -1,14 +1,14 @@
-import { useEffect, useState, useCallback } from 'react'
-import { fetchProjectById, updateTaskPosition } from '../api'
-import { ProjectHeader } from '../components/board/projectHeader'
-import { BoardColumn } from '../components/board/boardColumn'
-import { DndContext, closestCorners, PointerSensor, useSensor, useSensors, DragOverlay, defaultDropAnimationSideEffects, type DropAnimation } from '@dnd-kit/core'
-import type { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core'
-import { arrayMove, SortableContext } from '@dnd-kit/sortable'
-import { createPortal } from 'react-dom'
-import { TaskCard } from '../components/board/taskCard'
+import { useEffect, useState, useCallback } from "react"
+import { fetchProjectById, updateTaskPosition, fetchTaskById } from "../api"
+import { ProjectHeader } from "../components/board/projectHeader"
+import { BoardColumn } from "../components/board/boardColumn"
+import { DndContext, closestCorners, PointerSensor, useSensor, useSensors, DragOverlay, defaultDropAnimationSideEffects, type DropAnimation } from "@dnd-kit/core"
+import type { DragEndEvent, DragStartEvent, DragOverEvent } from "@dnd-kit/core"
+import { arrayMove, SortableContext } from "@dnd-kit/sortable"
+import { createPortal } from "react-dom"
+import { TaskCard } from "../components/board/taskCard"
 
-const dropAnimation: DropAnimation = { sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: '0.4' } } }) }
+const dropAnimation: DropAnimation = { sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0.4" } } }) }
 
 export function ProjectPage({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<any>(null)
@@ -16,26 +16,88 @@ export function ProjectPage({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [activeTask, setActiveTask] = useState<any>(null)
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 3 } }))
+
   useEffect(() => {
+    setLoading(true)
     fetchProjectById(projectId)
-      .then(data => setProject(data))
-      .catch(() => setError('Failed to load project data.'))
+      .then(async (data) => {
+        setProject(data)
+        const cols = Array.isArray(data?.columns) ? data.columns : []
+        const tasks = cols.flatMap((c: any) => Array.isArray(c.tasks) ? c.tasks : [])
+        if (tasks.length === 0) return
+        const updates = await Promise.allSettled(
+          tasks.map((t: any) =>
+            fetchTaskById(String(t.id)).then(td => ({
+              id: t.id,
+              commentsCount: td.comments?.length ?? 0,
+              attachmentsCount: td.attachments?.length ?? 0,
+              priority: td.priority ?? null
+            }))
+          )
+        )
+        setProject((prev: any) => {
+          if (!prev?.columns) return prev
+          const patches = new Map<string, any>()
+          for (const u of updates) {
+            if (u.status === "fulfilled" && u.value) patches.set(String(u.value.id), u.value)
+          }
+          return {
+            ...prev,
+            columns: prev.columns.map((col: any) => ({
+              ...col,
+              tasks: Array.isArray(col.tasks)
+                ? col.tasks.map((t: any) => {
+                    const p = patches.get(String(t.id))
+                    return p ? { ...t, ...p } : t
+                  })
+                : []
+            }))
+          }
+        })
+      })
+      .catch(() => setError("Failed to load project data."))
       .finally(() => setLoading(false))
   }, [projectId])
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 3 } }))
+  useEffect(() => {
+    function onStats(e: Event) {
+      const d: any = (e as CustomEvent).detail
+      if (!d?.taskId) return
+      setProject((prev: any) => {
+        if (!prev?.columns) return prev
+        return {
+          ...prev,
+          columns: prev.columns.map((col: any) => ({
+            ...col,
+            tasks: Array.isArray(col.tasks)
+              ? col.tasks.map((t: any) =>
+                  String(t.id) === String(d.taskId)
+                    ? {
+                        ...t,
+                        commentsCount: typeof d.commentsCount === "number" ? d.commentsCount : t.commentsCount,
+                        attachmentsCount: typeof d.attachmentsCount === "number" ? d.attachmentsCount : t.attachmentsCount,
+                        priority: d.priority !== undefined ? d.priority : t.priority
+                      }
+                    : t
+                )
+              : []
+          }))
+        }
+      })
+    }
+    window.addEventListener("planify:task-stats", onStats as EventListener)
+    return () => window.removeEventListener("planify:task-stats", onStats as EventListener)
+  }, [])
 
   const findColumnContainingTask = (taskId: string, proj: any) => {
     if (!proj) return null
-    for (const col of proj.columns) {
-      if (Array.isArray(col.tasks) && col.tasks.some((task: any) => String(task.id) === taskId)) return col
-    }
+    for (const col of proj.columns) if (Array.isArray(col.tasks) && col.tasks.some((task: any) => String(task.id) === taskId)) return col
     return null
   }
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const { active } = event
-    const activeId = String(active.id)
+    const activeId = String(event.active.id)
     if (project) {
       const task = findColumnContainingTask(activeId, project)?.tasks.find((t: any) => String(t.id) === activeId)
       setActiveTask(task)
@@ -48,7 +110,6 @@ export function ProjectPage({ projectId }: { projectId: string }) {
     const activeId = String(active.id)
     const overId = String(over.id)
     if (activeId === overId) return
-
     setProject((prev: any) => {
       if (!prev) return null
       const activeColumn = findColumnContainingTask(activeId, prev)
@@ -67,16 +128,13 @@ export function ProjectPage({ projectId }: { projectId: string }) {
     if (!over || !project) return
     const activeId = String(active.id)
     const overId = String(over.id)
-
     setProject((prev: any) => {
       if (!prev) return null
       const activeColumn = findColumnContainingTask(activeId, prev)
       let overColumn = prev.columns.find((col: any) => String(col.id) === overId) || findColumnContainingTask(overId, prev)
       if (!activeColumn || !overColumn) return prev
-
       const aIdx = activeColumn.tasks.findIndex((t: any) => String(t.id) === activeId)
       const oIdx = overColumn.tasks.findIndex((t: any) => String(t.id) === activeId)
-
       if (activeColumn.id === overColumn.id) {
         if (aIdx === -1 || oIdx === -1) return prev
         overColumn.tasks = arrayMove(overColumn.tasks, aIdx, oIdx)
@@ -88,16 +146,12 @@ export function ProjectPage({ projectId }: { projectId: string }) {
         return { ...prev }
       }
     })
-
     const next = project
     const targetColumn = next.columns.find((c: any) => c.tasks?.some((t: any) => String(t.id) === activeId))
     if (targetColumn) {
       const newIndex = targetColumn.tasks.findIndex((t: any) => String(t.id) === activeId)
-      try {
-        await updateTaskPosition(activeId, String(targetColumn.id), newIndex)
-      } catch {
-        fetchProjectById(projectId).then(setProject)
-      }
+      try { await updateTaskPosition(activeId, String(targetColumn.id), newIndex) }
+      catch { fetchProjectById(projectId).then(setProject) }
     }
     setActiveTask(null)
   }, [project, projectId])
@@ -117,10 +171,7 @@ export function ProjectPage({ projectId }: { projectId: string }) {
             ))}
           </SortableContext>
         </div>
-        {createPortal(
-          <DragOverlay dropAnimation={dropAnimation}>{activeTask ? <TaskCard task={activeTask} /> : null}</DragOverlay>,
-          document.body
-        )}
+        {createPortal(<DragOverlay dropAnimation={dropAnimation}>{activeTask ? <TaskCard task={activeTask} /> : null}</DragOverlay>, document.body)}
       </DndContext>
     </div>
   )

@@ -26,7 +26,8 @@ func (r *TaskRepository) GetByID(taskID int) (*model.TaskDetail, error) {
 			t.id, t.title, t.description,
 			p.id, p.name,
 			s.id, s.title,
-			p.due_date
+			p.due_date,
+			t.priority
 		FROM tasks t
 		JOIN projects p ON p.id = t.project_id
 		JOIN statuses s ON s.id = t.status_id
@@ -36,12 +37,14 @@ func (r *TaskRepository) GetByID(taskID int) (*model.TaskDetail, error) {
 	var td model.TaskDetail
 	var desc sql.NullString
 	var due sql.NullString
+	var prio sql.NullString
 
 	if err := row.Scan(
 		&td.ID, &td.Title, &desc,
 		&td.ProjectID, &td.ProjectName,
 		&td.StatusID, &td.StatusName,
 		&due,
+		&prio,
 	); err != nil {
 		return nil, err
 	}
@@ -52,6 +55,10 @@ func (r *TaskRepository) GetByID(taskID int) (*model.TaskDetail, error) {
 	if due.Valid {
 		v := due.String
 		td.DueDate = &v
+	}
+	if prio.Valid {
+		v := prio.String
+		td.Priority = &v
 	}
 
 	ar, err := r.DB.Query(`
@@ -105,7 +112,7 @@ func (r *TaskRepository) GetByID(taskID int) (*model.TaskDetail, error) {
 	return &td, nil
 }
 
-func (r *TaskRepository) UpdateFields(taskID int, title *string, description *string, dueDate *string) error {
+func (r *TaskRepository) UpdateFields(taskID int, title *string, description *string, dueDate *string, priority *string) error {
 	if title != nil {
 		if _, err := r.DB.Exec("UPDATE tasks SET title = ? WHERE id = ?", *title, taskID); err != nil {
 			return err
@@ -118,6 +125,11 @@ func (r *TaskRepository) UpdateFields(taskID int, title *string, description *st
 	}
 	if dueDate != nil {
 		if _, err := r.DB.Exec("UPDATE projects p JOIN tasks t ON p.id = t.project_id SET p.due_date = ? WHERE t.id = ?", *dueDate, taskID); err != nil {
+			return err
+		}
+	}
+	if priority != nil {
+		if _, err := r.DB.Exec("UPDATE tasks SET priority = ? WHERE id = ?", *priority, taskID); err != nil {
 			return err
 		}
 	}
@@ -190,7 +202,7 @@ func (r *TaskRepository) ListAttachments(taskID int) ([]model.Attachment, error)
 			ID:       id,
 			FileName: name,
 			Size:     size,
-			URL:      "/uploads/" + stored,
+					URL:      "/uploads/" + stored,
 		})
 	}
 	return out, nil
@@ -220,13 +232,32 @@ func (r *TaskRepository) ListComments(taskID int) ([]model.TaskComment, error) {
 		var name sql.NullString
 		var email sql.NullString
 		var avatar sql.NullString
+
 		if err := rows.Scan(&id, &text, &created, &uid, &name, &email, &avatar); err != nil {
 			return nil, err
 		}
-		var author *model.User
+
+		var author *model.TaskCommentAuthor
 		if uid.Valid {
-			author = &model.User{ID: int(uid.Int64), Name: name.String, Email: email.String, Avatar: avatar.String}
+			uidVal := int(uid.Int64)
+			var nameVal, emailVal, avatarVal string
+			if name.Valid {
+				nameVal = name.String
+			}
+			if email.Valid {
+				emailVal = email.String
+			}
+			if avatar.Valid {
+				avatarVal = avatar.String
+			}
+			author = &model.TaskCommentAuthor{
+				ID:     &uidVal,
+				Name:   &nameVal,
+				Email:  &emailVal,
+				Avatar: &avatarVal,
+			}
 		}
+
 		out = append(out, model.TaskComment{
 			ID:        id,
 			Text:      text,
@@ -234,6 +265,7 @@ func (r *TaskRepository) ListComments(taskID int) ([]model.TaskComment, error) {
 			Author:    author,
 		})
 	}
+
 	return out, nil
 }
 

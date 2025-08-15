@@ -7,6 +7,7 @@ import {
   addAssignee,
   addCollaborator,
   uploadAttachment,
+  updateTaskPriority,
   type TaskDetail,
   type TaskComment,
   type Priority,
@@ -16,6 +17,7 @@ import { format } from "date-fns"
 import TitleEditor from "../components/task/TitleEditor"
 import DueDatePicker from "../components/task/DueDatePicker"
 import AddPersonDialog from "../components/task/AddPersonDialog"
+import PrioritySelect from "../components/board/prioritySelect"
 
 function norm(url?: string | null) {
   if (!url) return ""
@@ -40,20 +42,11 @@ export function TaskPage({ taskId }: { taskId: string }) {
     const run = async () => {
       setLoading(true)
       const t = await fetchTaskById(taskId)
-      setTask({
-        ...t,
-        assignees: t.assignees ?? [],
-        collaborators: t.collaborators ?? [],
-        attachments: t.attachments ?? [],
-        comments: t.comments ?? [],
-      })
+      setTask({ ...t, assignees: t.assignees ?? [], collaborators: t.collaborators ?? [], attachments: t.attachments ?? [], comments: t.comments ?? [] })
       setComments((t.comments ?? []) as TaskComment[])
       setLoading(false)
     }
-    run().catch((e) => {
-      setError(e?.message || "Failed to load task")
-      setLoading(false)
-    })
+    run().catch((e) => { setError(e?.message || "Failed to load task"); setLoading(false) })
   }, [taskId])
 
   const commentCount = useMemo(() => comments.length, [comments])
@@ -80,13 +73,7 @@ export function TaskPage({ taskId }: { taskId: string }) {
             value={task.title}
             onSave={async (next) => {
               const updated = await updateTaskFields(taskId, { title: next })
-              setTask({
-                ...updated,
-                assignees: updated.assignees ?? [],
-                collaborators: updated.collaborators ?? [],
-                attachments: updated.attachments ?? [],
-                comments: updated.comments ?? [],
-              })
+              setTask({ ...updated, assignees: updated.assignees ?? [], collaborators: updated.collaborators ?? [], attachments: updated.attachments ?? [], comments: updated.comments ?? [] })
             }}
           />
           <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -94,33 +81,23 @@ export function TaskPage({ taskId }: { taskId: string }) {
               value={task.dueDate}
               onChange={async (next) => {
                 const updated = await updateTaskFields(taskId, { dueDate: next })
-                setTask({
-                  ...updated,
-                  assignees: updated.assignees ?? [],
-                  collaborators: updated.collaborators ?? [],
-                  attachments: updated.attachments ?? [],
-                  comments: updated.comments ?? [],
-                })
+                setTask({ ...updated, assignees: updated.assignees ?? [], collaborators: updated.collaborators ?? [], attachments: updated.attachments ?? [], comments: updated.comments ?? [] })
               }}
             />
-            <select
-              className="px-3 py-2 rounded-md border border-secondary/20 bg-board text-primary"
-              value={task.priority || ""}
-              onChange={async (e) => {
-                const next = (e.target.value || null) as Priority | null
-                const updated = await updateTaskFields(taskId, { priority: next as any })
-                setTask({
-                  ...updated,
-                  assignees: updated.assignees ?? [],
-                  collaborators: updated.collaborators ?? [],
-                  attachments: updated.attachments ?? [],
-                  comments: updated.comments ?? [],
-                })
+            <PrioritySelect
+              value={task.priority ?? null}
+              onChange={async (next) => {
+                setTask(prev => prev ? { ...prev, priority: next } : prev)
+                try {
+                  const saved = await updateTaskPriority(taskId, next)
+                  setTask(prev => prev ? { ...prev, priority: saved.priority ?? null } : prev)
+                  window.dispatchEvent(new CustomEvent("planify:task-stats", { detail: { taskId, priority: saved.priority ?? null } }))
+                } catch (e) {
+                  setTask(prev => prev ? { ...prev, priority: task.priority ?? null } : prev)
+                }
               }}
-            >
-              <option value="">No priority</option>
-              {PRIORITIES.map(p => <option key={p} value={p}>{p}</option>)}
-            </select>
+              className="text-sm"
+            />
             <div className="flex items-center gap-4 text-secondary text-sm">
               <span className="inline-flex items-center gap-1"><MessageSquare className="w-4 h-4"/>{commentCount}</span>
               <span className="inline-flex items-center gap-1"><Paperclip className="w-4 h-4"/>{attachmentCount}</span>
@@ -139,13 +116,7 @@ export function TaskPage({ taskId }: { taskId: string }) {
               onChange={(e) => setTask({ ...task, description: e.target.value })}
               onBlur={async (e) => {
                 const updated = await updateTaskFields(taskId, { description: e.target.value })
-                setTask({
-                  ...updated,
-                  assignees: updated.assignees ?? [],
-                  collaborators: updated.collaborators ?? [],
-                  attachments: updated.attachments ?? [],
-                  comments: updated.comments ?? [],
-                })
+                setTask({ ...updated, assignees: updated.assignees ?? [], collaborators: updated.collaborators ?? [], attachments: updated.attachments ?? [], comments: updated.comments ?? [] })
               }}
               placeholder="Describe the task…"
             />
@@ -170,6 +141,7 @@ export function TaskPage({ taskId }: { taskId: string }) {
                     setNewComment("")
                     const next = await listComments(taskId)
                     setComments(next)
+                    window.dispatchEvent(new CustomEvent("planify:task-stats", { detail: { taskId, commentsCount: next.length } }))
                   }}
                 >
                   Add
@@ -177,31 +149,18 @@ export function TaskPage({ taskId }: { taskId: string }) {
               </div>
             </div>
             <div className="space-y-3">
-              {(comments?.length ?? 0) === 0 && (
-                <div className="flex items-center gap-2 text-secondary text-sm">
-                  <MessageSquare className="w-4 h-4" /> No comments yet
-                </div>
-              )}
+              {(comments?.length ?? 0) === 0 && <div className="flex items-center gap-2 text-secondary text-sm"><MessageSquare className="w-4 h-4" /> No comments yet</div>}
               {(comments ?? []).map((c) => (
                 <div key={c.id} className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full overflow-hidden bg-board">
                     {c.author?.avatar ? (
-                      <img
-                        src={norm(c.author.avatar)}
-                        className="w-8 h-8 object-cover"
-                        onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")}
-                      />
+                      <img src={norm(c.author.avatar)} className="w-8 h-8 object-cover" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")} />
                     ) : (
-                      <img
-                        src="https://placehold.co/64x64?text=U"
-                        className="w-8 h-8 object-cover"
-                      />
+                      <img src="https://placehold.co/64x64?text=U" className="w-8 h-8 object-cover" />
                     )}
                   </div>
                   <div className="flex-1">
-                    <div className="text-sm text-secondary">
-                      {c.author?.name ?? "Someone"} • {format(new Date(c.createdAt), "PPp")}
-                    </div>
+                    <div className="text-sm text-secondary">{c.author?.name ?? "Someone"} • {format(new Date(c.createdAt), "PPp")}</div>
                     <div className="text-primary">{c.text}</div>
                   </div>
                 </div>
@@ -222,16 +181,9 @@ export function TaskPage({ taskId }: { taskId: string }) {
                   <div key={a.id} className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-board">
                       {a.avatar ? (
-                        <img
-                          src={norm(a.avatar)}
-                          className="w-8 h-8 object-cover"
-                          onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")}
-                        />
+                        <img src={norm(a.avatar)} className="w-8 h-8 object-cover" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")} />
                       ) : (
-                        <img
-                          src="https://placehold.co/64x64?text=U"
-                          className="w-8 h-8 object-cover"
-                        />
+                        <img src="https://placehold.co/64x64?text=U" className="w-8 h-8 object-cover" />
                       )}
                     </div>
                     <span className="text-primary text-sm">{a.name}</span>
@@ -253,16 +205,9 @@ export function TaskPage({ taskId }: { taskId: string }) {
                 (task.collaborators ?? []).map((a) => (
                   <div key={a.id} className="w-8 h-8 rounded-full overflow-hidden bg-board border-2 border-surface" title={a.name}>
                     {a.avatar ? (
-                      <img
-                        src={norm(a.avatar)}
-                        className="w-8 h-8 object-cover"
-                        onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")}
-                      />
+                      <img src={norm(a.avatar)} className="w-8 h-8 object-cover" onError={(e) => ((e.currentTarget as HTMLImageElement).src = "https://placehold.co/64x64?text=U")} />
                     ) : (
-                      <img
-                        src="https://placehold.co/64x64?text=U"
-                        className="w-8 h-8 object-cover"
-                      />
+                      <img src="https://placehold.co/64x64?text=U" className="w-8 h-8 object-cover" />
                     )}
                   </div>
                 ))
@@ -284,13 +229,8 @@ export function TaskPage({ taskId }: { taskId: string }) {
                     if (!f) return
                     await uploadAttachment(taskId, f)
                     const updated = await fetchTaskById(taskId)
-                    setTask({
-                      ...updated,
-                      assignees: updated.assignees ?? [],
-                      collaborators: updated.collaborators ?? [],
-                      attachments: updated.attachments ?? [],
-                      comments: updated.comments ?? [],
-                    })
+                    setTask({ ...updated, assignees: updated.assignees ?? [], collaborators: updated.collaborators ?? [], attachments: updated.attachments ?? [], comments: updated.comments ?? [] })
+                    window.dispatchEvent(new CustomEvent("planify:task-stats", { detail: { taskId, attachmentsCount: updated.attachments?.length ?? 0 } }))
                   }}
                 />
                 <span className="inline-flex items-center gap-1"><Plus className="w-3 h-3" />Add</span>
@@ -315,13 +255,7 @@ export function TaskPage({ taskId }: { taskId: string }) {
         onSubmit={async (q) => {
           await addAssignee(taskId, q)
           const updated = await fetchTaskById(taskId)
-          setTask({
-            ...updated,
-            assignees: updated.assignees ?? [],
-            collaborators: updated.collaborators ?? [],
-            attachments: updated.attachments ?? [],
-            comments: updated.comments ?? [],
-          })
+          setTask({ ...updated, assignees: updated.assignees ?? [], collaborators: updated.collaborators ?? [], attachments: updated.attachments ?? [], comments: updated.comments ?? [] })
         }}
         onClose={() => setAddingAssignee(false)}
       />
@@ -333,13 +267,7 @@ export function TaskPage({ taskId }: { taskId: string }) {
         onSubmit={async (q) => {
           await addCollaborator(taskId, q)
           const updated = await fetchTaskById(taskId)
-          setTask({
-            ...updated,
-            assignees: updated.assignees ?? [],
-            collaborators: updated.collaborators ?? [],
-            attachments: updated.attachments ?? [],
-            comments: updated.comments ?? [],
-          })
+          setTask({ ...updated, assignees: updated.assignees ?? [], collaborators: updated.collaborators ?? [], attachments: updated.attachments ?? [], comments: updated.comments ?? [] })
         }}
         onClose={() => setAddingCollab(false)}
       />

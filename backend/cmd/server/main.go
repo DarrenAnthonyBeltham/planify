@@ -37,11 +37,8 @@ func main() {
 	taskHandler := &handler.TaskHandler{Repo: taskRepo}
 
 	r := gin.Default()
-
-	// serve uploaded avatars/files
 	r.StaticFS("/uploads", http.Dir("uploads"))
 
-	// CORS for Vite dev server
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
@@ -55,20 +52,19 @@ func main() {
 		api.POST("/login", authHandler.Login)
 		api.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "UP"}) })
 
-		auth := api.Group("") 
+		auth := api.Group("")
 		auth.Use(middleware.AuthMiddleware())
 		{
-			// projects
 			auth.GET("/projects", projectHandler.GetAllProjects)
 			auth.GET("/projects/:id", projectHandler.GetProjectByID)
 			auth.POST("/projects", projectHandler.CreateProject)
-			auth.PATCH("/projects/:id/duedate", projectHandler.UpdateProjectDueDate)
+			auth.GET("/me/summary", userHandler.GetMySummary)
+			auth.GET("/me/projects", userHandler.GetMyProjects)
+			auth.PATCH("/projects/:id/due-date", projectHandler.UpdateProjectDueDate)
 
-			// users/tasks for current user
 			auth.GET("/users/search", userHandler.SearchUsers)
 			auth.GET("/me/tasks", userHandler.GetMyTasks)
 
-			// tasks
 			auth.GET("/tasks/:id", taskHandler.GetTaskByID)
 			auth.PATCH("/tasks/:id/move", taskHandler.UpdateTaskPosition)
 			auth.PATCH("/tasks/:id", taskHandler.UpdateTaskFields)
@@ -79,7 +75,6 @@ func main() {
 			auth.GET("/tasks/:id/attachments", taskHandler.ListAttachments)
 			auth.POST("/tasks/:id/attachments", taskHandler.UploadAttachment)
 
-			// profile
 			auth.GET("/me", userHandler.GetMe)
 			auth.PATCH("/me", userHandler.PatchMe)
 			auth.POST("/me/avatar", userHandler.UploadAvatar)
