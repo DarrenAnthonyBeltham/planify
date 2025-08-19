@@ -10,7 +10,6 @@ import {
   updateTaskPriority,
   type TaskDetail,
   type TaskComment,
-  type Priority,
 } from "../api"
 import { CheckCircle2, Users, ChevronRight, Paperclip, MessageSquare, Plus } from "lucide-react"
 import { format } from "date-fns"
@@ -26,8 +25,6 @@ function norm(url?: string | null) {
   const origin = base.replace(/\/api\/?$/, "")
   return url.startsWith("/") ? origin + url : origin + "/" + url
 }
-
-const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Urgent"]
 
 export function TaskPage({ taskId }: { taskId: string }) {
   const [task, setTask] = useState<TaskDetail | null>(null)

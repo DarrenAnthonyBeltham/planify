@@ -7,6 +7,7 @@ import type { DragEndEvent, DragStartEvent, DragOverEvent } from "@dnd-kit/core"
 import { arrayMove, SortableContext } from "@dnd-kit/sortable"
 import { createPortal } from "react-dom"
 import { TaskCard } from "../components/board/taskCard"
+import { ArrowLeft } from "lucide-react"
 
 const dropAnimation: DropAnimation = { sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0.4" } } }) }
 
@@ -162,6 +163,12 @@ export function ProjectPage({ projectId }: { projectId: string }) {
 
   return (
     <div className="py-8">
+      <div className="mb-4">
+        <a href="#/" className="inline-flex items-center gap-2 text-sm text-secondary hover:text-primary transition-colors">
+          <ArrowLeft className="w-4 h-4" />
+          Back to Home
+        </a>
+      </div>
       <ProjectHeader project={project} onUpdate={setProject} />
       <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <div className="flex gap-4 overflow-x-auto py-4">
