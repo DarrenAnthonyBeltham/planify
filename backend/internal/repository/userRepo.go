@@ -222,3 +222,38 @@ func (r *UserRepository) GetMyProjects(userID int) ([]LiteProject, error) {
 	}
 	return out, nil
 }
+
+func (r *UserRepository) GetProjectsByUserID(userID int) ([]LiteProject, error) {
+	rows, err := r.DB.Query(`
+		SELECT DISTINCT p.id, p.name, p.description, p.due_date
+		FROM projects p
+		JOIN tasks t ON t.project_id = p.id
+		JOIN task_assignees ta ON ta.task_id = t.id
+		WHERE ta.user_id = ?
+		ORDER BY p.id DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []LiteProject
+	for rows.Next() {
+		var p LiteProject
+		var desc sql.NullString
+		var due  sql.NullString
+		if err := rows.Scan(&p.ID, &p.Name, &desc, &due); err != nil {
+			return nil, err
+		}
+		if desc.Valid {
+			v := desc.String
+			p.Description = &v
+		}
+		if due.Valid {
+			v := due.String
+			p.DueDate = &v
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}

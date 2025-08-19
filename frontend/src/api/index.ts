@@ -64,6 +64,26 @@ export interface CreatedTask {
   priority?: Priority | null
 }
 
+export interface PublicUser { 
+  id: number; 
+  name: string; 
+  email: string; 
+  avatar?: string | null 
+}
+
+export interface PublicUserTask { 
+  id: number; 
+  title: string; 
+  projectId: number; 
+  projectName: string 
+}
+
+export interface PublicUserProject { 
+  id: number; 
+  name: string; 
+  description: string 
+}
+
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080/api"
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -268,4 +288,24 @@ export async function createTask(projectId: number, statusId: number, title: str
     method: "POST",
     body: JSON.stringify({ statusId, title })
   })
+}
+
+export async function fetchUserSummary(id: string) {
+  return api(`/users/${id}/summary`)
+}
+
+export async function fetchUserProjects(id: string) {
+  return api<Project[]>(`/users/${id}/projects`)
+}
+
+export async function fetchUserPublic(id: string | number): Promise<PublicUser> {
+  return api<PublicUser>(`/users/${id}`)
+}
+
+export async function fetchUserProjectsById(id: string | number): Promise<PublicUserProject[]> {
+  return api<PublicUserProject[]>(`/users/${id}/projects`)
+}
+
+export async function fetchUserTasksById(id: string | number): Promise<PublicUserTask[]> {
+  return api<PublicUserTask[]>(`/users/${id}/tasks`)
 }

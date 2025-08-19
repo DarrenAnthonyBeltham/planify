@@ -175,3 +175,31 @@ func (h *UserHandler) GetMyProjects(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, list)
 }
+
+func (h *UserHandler) GetUserSummary(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	s, err := h.Repo.GetSummary(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch summary"})
+		return
+	}
+	c.JSON(http.StatusOK, s)
+}
+
+func (h *UserHandler) GetUserProjects(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	list, err := h.Repo.GetMyProjects(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch projects"})
+		return
+	}
+	c.JSON(http.StatusOK, list)
+}

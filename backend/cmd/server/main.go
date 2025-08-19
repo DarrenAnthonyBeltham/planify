@@ -57,7 +57,7 @@ func main() {
 			auth.GET("/projects", projectHandler.GetAllProjects)
 			auth.GET("/projects/:id", projectHandler.GetProjectByID)
 			auth.POST("/projects", projectHandler.CreateProject)
-			auth.PATCH("/projects/:id/due-date", projectHandler.UpdateProjectDueDate)
+			auth.PATCH("/projects/:id/duedate", projectHandler.UpdateProjectDueDate)
 			auth.POST("/projects/:id/tasks", taskHandler.CreateTask)
 
 			auth.GET("/users/search", userHandler.SearchUsers)
@@ -79,6 +79,9 @@ func main() {
 			auth.PATCH("/me/password", userHandler.ChangePassword)
 			auth.GET("/me/summary", userHandler.GetMySummary)
 			auth.GET("/me/projects", userHandler.GetMyProjects)
+
+			auth.GET("/users/:id/summary", userHandler.GetUserSummary)
+			auth.GET("/users/:id/projects", userHandler.GetUserProjects)
 		}
 	}
 

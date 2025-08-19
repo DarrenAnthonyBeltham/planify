@@ -5,6 +5,7 @@ import { MyTasksPage } from "../pages/MyTasksPage"
 import { TaskPage } from "../pages/TaskPage"
 import { LoginPage } from "../pages/LoginPage"
 import { ProfilePage } from "../pages/ProfilePage"
+import { UserProfilePage } from "../pages/userProfilePages"
 import { useAuth } from "../contexts/authContext"
 
 export function Router() {
@@ -27,5 +28,6 @@ export function Router() {
   if (parts[0] === "project" && parts[1]) return <ProjectPage projectId={parts[1]} />
   if (parts[0] === "task" && parts[1]) return <TaskPage taskId={parts[1]} />
   if (parts[0] === "profile") return <ProfilePage />
+  if ((parts[0] === "user" || parts[0] === "u") && parts[1]) return <UserProfilePage userId={parts[1]} />
   return <HomePage />
 }
