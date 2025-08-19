@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"database/sql"
 	"net/http"
 	"planify/backend/internal/repository"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
+
 
 type ProjectHandler struct {
 	Repo *repository.ProjectRepository
@@ -29,7 +31,11 @@ func (h *ProjectHandler) GetProjectByID(c *gin.Context) {
 	}
 	project, err := h.Repo.GetByID(id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Project not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, project)

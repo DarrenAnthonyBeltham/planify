@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react"
-import { fetchProjectById, updateTaskPosition, fetchTaskById } from "../api"
+import { fetchProjectById, updateTaskPosition, fetchTaskById, createTask } from "../api"
 import { ProjectHeader } from "../components/board/projectHeader"
 import { BoardColumn } from "../components/board/boardColumn"
 import { DndContext, closestCorners, PointerSensor, useSensor, useSensors, DragOverlay, defaultDropAnimationSideEffects, type DropAnimation } from "@dnd-kit/core"
@@ -129,11 +129,13 @@ export function ProjectPage({ projectId }: { projectId: string }) {
     if (!over || !project) return
     const activeId = String(active.id)
     const overId = String(over.id)
+    let targetStatusId: string | null = null
     setProject((prev: any) => {
       if (!prev) return null
       const activeColumn = findColumnContainingTask(activeId, prev)
       let overColumn = prev.columns.find((col: any) => String(col.id) === overId) || findColumnContainingTask(overId, prev)
       if (!activeColumn || !overColumn) return prev
+      targetStatusId = String(overColumn.id)
       const aIdx = activeColumn.tasks.findIndex((t: any) => String(t.id) === activeId)
       const oIdx = overColumn.tasks.findIndex((t: any) => String(t.id) === activeId)
       if (activeColumn.id === overColumn.id) {
@@ -148,14 +150,43 @@ export function ProjectPage({ projectId }: { projectId: string }) {
       }
     })
     const next = project
-    const targetColumn = next.columns.find((c: any) => c.tasks?.some((t: any) => String(t.id) === activeId))
-    if (targetColumn) {
-      const newIndex = targetColumn.tasks.findIndex((t: any) => String(t.id) === activeId)
-      try { await updateTaskPosition(activeId, String(targetColumn.id), newIndex) }
+    const column = next.columns.find((c: any) => c.tasks?.some((t: any) => String(t.id) === activeId))
+    if (column && targetStatusId) {
+      const newIndex = column.tasks.findIndex((t: any) => String(t.id) === activeId)
+      try { await updateTaskPosition(activeId, targetStatusId, newIndex) }
       catch { fetchProjectById(projectId).then(setProject) }
     }
     setActiveTask(null)
   }, [project, projectId])
+
+  const handleAddTask = useCallback(async (statusId: string | number, title: string) => {
+    const created = await createTask(Number(projectId), Number(statusId), title)
+    setProject((prev: any) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        columns: prev.columns.map((c: any) =>
+          String(c.id) === String(statusId)
+            ? {
+                ...c,
+                tasks: [
+                  {
+                    id: created.id,
+                    title: created.title,
+                    position: created.position,
+                    statusId: created.statusId,
+                    commentsCount: created.commentsCount ?? 0,
+                    attachmentsCount: created.attachmentsCount ?? 0,
+                    priority: created.priority ?? null
+                  },
+                  ...(c.tasks || [])
+                ]
+              }
+            : c
+        )
+      }
+    })
+  }, [projectId])
 
   if (loading) return <div className="p-8 text-center text-secondary">Loading project…</div>
   if (error) return <div className="p-8 text-center text-red-500">{error}</div>
@@ -174,7 +205,7 @@ export function ProjectPage({ projectId }: { projectId: string }) {
         <div className="flex gap-4 overflow-x-auto py-4">
           <SortableContext items={(project.columns || []).map((c: any) => c.id)}>
             {(project.columns || []).map((col: any) => (
-              <BoardColumn key={col.id} column={col} onAddTask={() => {}} />
+              <BoardColumn key={col.id} column={col} onAddTask={handleAddTask} />
             ))}
           </SortableContext>
         </div>

@@ -187,3 +187,25 @@ func (h *TaskHandler) ListComments(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, comments)
 }
+
+func (h *TaskHandler) CreateTask(c *gin.Context) {
+	projectID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid project ID"})
+		return
+	}
+	var b struct {
+		StatusId int    `json:"statusId"`
+		Title    string `json:"title"`
+	}
+	if err := c.ShouldBindJSON(&b); err != nil || b.Title == "" || b.StatusId == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
+		return
+	}
+	id, pos, err := h.Repo.CreateTask(projectID, b.StatusId, b.Title)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{"id": id, "title": b.Title, "position": pos, "statusId": b.StatusId})
+}

@@ -202,7 +202,7 @@ func (r *TaskRepository) ListAttachments(taskID int) ([]model.Attachment, error)
 			ID:       id,
 			FileName: name,
 			Size:     size,
-					URL:      "/uploads/" + stored,
+			URL:      "/uploads/" + stored,
 		})
 	}
 	return out, nil
@@ -262,7 +262,7 @@ func (r *TaskRepository) ListComments(taskID int) ([]model.TaskComment, error) {
 			ID:        id,
 			Text:      text,
 			CreatedAt: created,
-			Author:    author,
+					Author:    author,
 		})
 	}
 
@@ -276,4 +276,21 @@ func (r *TaskRepository) AddComment(taskID int, userID *int, text string) error 
 	}
 	_, err := r.DB.Exec("INSERT INTO task_comments (task_id, text) VALUES (?, ?)", taskID, text)
 	return err
+}
+
+func (r *TaskRepository) CreateTask(projectID, statusID int, title string) (int, int, error) {
+	var pos sql.NullInt64
+	if err := r.DB.QueryRow("SELECT COALESCE(MAX(position), -1) FROM tasks WHERE status_id = ?", statusID).Scan(&pos); err != nil {
+		return 0, 0, err
+	}
+	next := int(pos.Int64) + 1
+	res, err := r.DB.Exec("INSERT INTO tasks (project_id, status_id, title, position) VALUES (?, ?, ?, ?)", projectID, statusID, title, next)
+	if err != nil {
+		return 0, 0, err
+	}
+	id64, err := res.LastInsertId()
+	if err != nil {
+		return 0, 0, err
+	}
+	return int(id64), next, nil
 }

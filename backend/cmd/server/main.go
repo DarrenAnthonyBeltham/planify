@@ -38,7 +38,6 @@ func main() {
 
 	r := gin.Default()
 	r.StaticFS("/uploads", http.Dir("uploads"))
-
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:5173"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
@@ -58,9 +57,8 @@ func main() {
 			auth.GET("/projects", projectHandler.GetAllProjects)
 			auth.GET("/projects/:id", projectHandler.GetProjectByID)
 			auth.POST("/projects", projectHandler.CreateProject)
-			auth.GET("/me/summary", userHandler.GetMySummary)
-			auth.GET("/me/projects", userHandler.GetMyProjects)
 			auth.PATCH("/projects/:id/due-date", projectHandler.UpdateProjectDueDate)
+			auth.POST("/projects/:id/tasks", taskHandler.CreateTask)
 
 			auth.GET("/users/search", userHandler.SearchUsers)
 			auth.GET("/me/tasks", userHandler.GetMyTasks)
@@ -79,6 +77,8 @@ func main() {
 			auth.PATCH("/me", userHandler.PatchMe)
 			auth.POST("/me/avatar", userHandler.UploadAvatar)
 			auth.PATCH("/me/password", userHandler.ChangePassword)
+			auth.GET("/me/summary", userHandler.GetMySummary)
+			auth.GET("/me/projects", userHandler.GetMyProjects)
 		}
 	}
 

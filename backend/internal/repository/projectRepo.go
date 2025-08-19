@@ -11,7 +11,7 @@ type ProjectRepository struct {
 }
 
 func (r *ProjectRepository) GetAll() ([]model.Project, error) {
-	rows, err := r.DB.Query("SELECT id, name, description, created_at FROM projects")
+	rows, err := r.DB.Query(`SELECT id, name, description, created_at FROM projects`)
 	if err != nil {
 		return nil, err
 	}
@@ -25,7 +25,6 @@ func (r *ProjectRepository) GetAll() ([]model.Project, error) {
 		}
 		projects = append(projects, p)
 	}
-
 	return projects, nil
 }
 
@@ -36,16 +35,21 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 	var createdAt sql.NullTime
 	var dueDate sql.NullString
 	err := r.DB.QueryRow(
-		"SELECT name, description, due_date, created_at FROM projects WHERE id = ?",
+		`SELECT name, description, due_date, created_at FROM projects WHERE id = ?`,
 		id,
 	).Scan(&name, &description, &dueDate, &createdAt)
 	if err != nil {
 		return nil, err
 	}
+
 	projectData["id"] = id
 	projectData["name"] = name
 	projectData["description"] = description
-	projectData["createdAt"] = createdAt.Time
+	if createdAt.Valid {
+		projectData["createdAt"] = createdAt.Time
+	} else {
+		projectData["createdAt"] = nil
+	}
 	if dueDate.Valid {
 		projectData["due_date"] = dueDate.String
 	} else {
@@ -71,8 +75,7 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 	}
 	projectData["team"] = team
 
-	var columns []map[string]interface{}
-	statusRows, err := r.DB.Query("SELECT id, title FROM statuses ORDER BY position")
+	statusRows, err := r.DB.Query(`SELECT id, title FROM statuses ORDER BY position`)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +84,7 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 	tasksByStatus := make(map[int][]map[string]interface{})
 
 	taskRows, err := r.DB.Query(`
-		SELECT id, status_id, title, description, position
+		SELECT id, status_id, title, description, COALESCE(position, 0)
 		FROM tasks
 		WHERE project_id = ?`, id)
 	if err != nil {
@@ -91,20 +94,26 @@ func (r *ProjectRepository) GetByID(id int) (map[string]interface{}, error) {
 
 	for taskRows.Next() {
 		var taskID, statusID, position int
-		var title, description string
-		if err := taskRows.Scan(&taskID, &statusID, &title, &description, &position); err != nil {
+		var title string
+		var desc sql.NullString
+		if err := taskRows.Scan(&taskID, &statusID, &title, &desc, &position); err != nil {
 			return nil, err
+		}
+		var descVal string
+		if desc.Valid {
+			descVal = desc.String
 		}
 		taskData := map[string]interface{}{
 			"id":          taskID,
 			"title":       title,
-			"description": description,
+			"description": descVal,
 			"position":    position,
 			"assignees":   []model.User{},
 		}
 		tasksByStatus[statusID] = append(tasksByStatus[statusID], taskData)
 	}
 
+	var columns []map[string]interface{}
 	for statusRows.Next() {
 		var statusID int
 		var statusTitle string
@@ -134,7 +143,7 @@ func (r *ProjectRepository) UpdateDueDate(projectID int, payload UpdateDueDatePa
 	} else {
 		arg = nil
 	}
-	_, err := r.DB.Exec("UPDATE projects SET due_date = ? WHERE id = ?", arg, projectID)
+	_, err := r.DB.Exec(`UPDATE projects SET due_date = ? WHERE id = ?`, arg, projectID)
 	return err
 }
 
@@ -158,8 +167,10 @@ func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project
 		due = nil
 	}
 
-	res, err := tx.Exec("INSERT INTO projects (name, description, due_date) VALUES (?, ?, ?)",
-		payload.Name, payload.Description, due)
+	res, err := tx.Exec(
+		`INSERT INTO projects (name, description, due_date) VALUES (?, ?, ?)`,
+		payload.Name, payload.Description, due,
+	)
 	if err != nil {
 		tx.Rollback()
 		return nil, err
@@ -171,7 +182,7 @@ func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project
 	}
 
 	if len(payload.TeamIDs) > 0 {
-		stmt, err := tx.Prepare("INSERT INTO project_members (project_id, user_id) VALUES (?, ?)")
+		stmt, err := tx.Prepare(`INSERT INTO project_members (project_id, user_id) VALUES (?, ?)`)
 		if err != nil {
 			tx.Rollback()
 			return nil, err

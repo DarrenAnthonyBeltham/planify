@@ -54,6 +54,16 @@ export interface TaskDetail {
   comments: TaskComment[]
 }
 
+export interface CreatedTask {
+  id: number
+  title: string
+  position: number
+  statusId: number
+  commentsCount?: number
+  attachmentsCount?: number
+  priority?: Priority | null
+}
+
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080/api"
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -164,12 +174,11 @@ export async function updateTaskFields(
   }
 }
 
-/** Robust priority updater that tries common field names used by APIs. */
 export async function updateTaskPriority(id: string, next: Priority | null): Promise<TaskDetail> {
   const variants = [
     { priority: next },
     { priority_label: next },
-    { priorityLabel: next },
+    { priorityLabel: next }
   ]
   let lastErr: unknown = null
   for (const body of variants) {
@@ -252,4 +261,11 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
 
 export async function changePassword(newPassword: string) {
   return api("/me/password", { method: "PATCH", body: JSON.stringify({ password: newPassword }) })
+}
+
+export async function createTask(projectId: number, statusId: number, title: string): Promise<CreatedTask> {
+  return api<CreatedTask>(`/projects/${projectId}/tasks`, {
+    method: "POST",
+    body: JSON.stringify({ statusId, title })
+  })
 }
