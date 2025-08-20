@@ -17,7 +17,7 @@ type UserHandler struct {
 
 func absoluteOrDefault(host, url string) string {
 	if url == "" {
-		return "http://" + host + "/assets/default-avatar.jpg"
+		return "http://" + host + "/uploads/default-avatar.jpg"
 	}
 	if len(url) >= 8 && (url[:7] == "http://" || url[:8] == "https://") {
 		return url
@@ -25,7 +25,7 @@ func absoluteOrDefault(host, url string) string {
 	if len(url) >= 9 && url[:9] == "/uploads/" {
 		return "http://" + host + url
 	}
-	return "http://" + host + "/assets/default-avatar.jpg"
+	return "http://" + host + "/uploads/default-avatar.jpg"
 }
 
 func (h *UserHandler) SearchUsers(c *gin.Context) {

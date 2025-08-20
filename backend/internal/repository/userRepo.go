@@ -35,7 +35,7 @@ type LiteProject struct {
 
 func defaultAvatar(s string) string {
 	if s == "" {
-		return "/assets/default-avatar.jpg"
+		return "/uploads/default-avatar.jpg"
 	}
 	return s
 }
@@ -266,4 +266,51 @@ func (r *UserRepository) GetProjectsByUserID(userID int) ([]LiteProject, error) 
 		out = append(out, p)
 	}
 	return out, nil
+}
+
+func (r *UserRepository) GetUserSettings(userID int) (*model.UserSettings, error) {
+	var s model.UserSettings
+	q := `
+		SELECT user_id, notifications_assign, notifications_due_date, notifications_comments, appearance_theme
+		FROM user_settings
+		WHERE user_id = ?
+	`
+	err := r.DB.QueryRow(q, userID).Scan(
+		&s.UserID, &s.NotificationsAssign, &s.NotificationsDueDate, &s.NotificationsComments, &s.AppearanceTheme,
+	)
+
+	if err == sql.ErrNoRows {
+		_, err := r.DB.Exec(`
+			INSERT INTO user_settings (user_id) VALUES (?)
+		`, userID)
+		if err != nil {
+			return nil, err
+		}
+		return r.GetUserSettings(userID)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &s, nil
+}
+
+func (r *UserRepository) UpdateUserSettings(settings *model.UserSettings) error {
+	q := `
+		UPDATE user_settings SET
+			notifications_assign = ?,
+			notifications_due_date = ?,
+			notifications_comments = ?,
+			appearance_theme = ?
+		WHERE user_id = ?
+	`
+	_, err := r.DB.Exec(q,
+		settings.NotificationsAssign,
+		settings.NotificationsDueDate,
+		settings.NotificationsComments,
+		settings.AppearanceTheme,
+		settings.UserID,
+	)
+	return err
 }

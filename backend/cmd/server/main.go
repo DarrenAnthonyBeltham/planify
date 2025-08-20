@@ -35,6 +35,7 @@ func main() {
 	authHandler := &handler.AuthHandler{UserRepo: userRepo}
 	userHandler := &handler.UserHandler{Repo: userRepo}
 	taskHandler := &handler.TaskHandler{Repo: taskRepo}
+	settingHandler := &handler.SettingsHandler{UserRepo: userRepo}
 
 	r := gin.Default()
 	r.StaticFS("/uploads", http.Dir("uploads"))
@@ -83,6 +84,9 @@ func main() {
 			auth.GET("/users/:id", userHandler.GetUserByID)
 			auth.GET("/users/:id/summary", userHandler.GetUserSummary)
 			auth.GET("/users/:id/projects", userHandler.GetUserProjects)
+
+			auth.GET("/settings", settingHandler.GetSettings)          
+			auth.PATCH("/settings", settingHandler.UpdateSettings) 
 		}
 	}
 

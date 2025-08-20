@@ -10,3 +10,11 @@ type User struct {
 	Avatar    string    `json:"avatar"`
 	CreatedAt time.Time `json:"createdAt"`
 }
+
+type UserSettings struct {
+	UserID                 int    `json:"userId"`
+	NotificationsAssign    bool   `json:"notificationsAssign"`
+	NotificationsDueDate   bool   `json:"notificationsDueDate"`
+	NotificationsComments  bool   `json:"notificationsComments"`
+	AppearanceTheme        string `json:"appearanceTheme"`
+}

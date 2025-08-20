@@ -92,6 +92,14 @@ export interface UserSummary {
   recentActivity: { id: number; text: string; createdAt: string; taskTitle?: string | null }[]
 }
 
+export interface UserSettings {
+  userId: number;
+  notificationsAssign: boolean;
+  notificationsDueDate: boolean;
+  notificationsComments: boolean;
+  appearanceTheme: 'Automatic' | 'Light' | 'Dark';
+}
+
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080/api"
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -328,4 +336,12 @@ export async function fetchUserTasksById(id: string | number): Promise<PublicUse
 
 export async function fetchUserSummary(id: string | number): Promise<UserSummary> {
   return api<UserSummary>(`/users/${id}/summary`)
+}
+
+export async function fetchSettings(): Promise<UserSettings> {
+  return api<UserSettings>("/settings");
+}
+
+export async function updateSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
+  return api<UserSettings>("/settings", { method: "PATCH", body: JSON.stringify(settings) });
 }
