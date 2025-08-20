@@ -15,6 +15,19 @@ type UserHandler struct {
 	Repo *repository.UserRepository
 }
 
+func absoluteOrDefault(host, url string) string {
+	if url == "" {
+		return "http://" + host + "/assets/default-avatar.jpg"
+	}
+	if len(url) >= 8 && (url[:7] == "http://" || url[:8] == "https://") {
+		return url
+	}
+	if len(url) >= 9 && url[:9] == "/uploads/" {
+		return "http://" + host + url
+	}
+	return "http://" + host + "/assets/default-avatar.jpg"
+}
+
 func (h *UserHandler) SearchUsers(c *gin.Context) {
 	q := c.Query("q")
 	if q == "" {
@@ -26,7 +39,17 @@ func (h *UserHandler) SearchUsers(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to search users"})
 		return
 	}
-	c.JSON(http.StatusOK, users)
+	host := c.Request.Host
+	out := make([]gin.H, 0, len(users))
+	for _, u := range users {
+		out = append(out, gin.H{
+			"id":     u.ID,
+			"name":   u.Name,
+			"email":  u.Email,
+			"avatar": absoluteOrDefault(host, u.Avatar),
+		})
+	}
+	c.JSON(http.StatusOK, out)
 }
 
 func (h *UserHandler) GetMyTasks(c *gin.Context) {
@@ -58,7 +81,27 @@ func (h *UserHandler) GetMe(c *gin.Context) {
 		"id":     u.ID,
 		"name":   u.Name,
 		"email":  u.Email,
-		"avatar": u.Avatar,
+		"avatar": absoluteOrDefault(c.Request.Host, u.Avatar),
+	})
+}
+
+func (h *UserHandler) GetUserByID(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+	u, err := h.Repo.GetByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"id":     u.ID,
+		"name":   u.Name,
+		"email":  u.Email,
+		"avatar": absoluteOrDefault(c.Request.Host, u.Avatar),
 	})
 }
 
@@ -85,7 +128,7 @@ func (h *UserHandler) PatchMe(c *gin.Context) {
 		"id":     u.ID,
 		"name":   u.Name,
 		"email":  u.Email,
-		"avatar": u.Avatar,
+		"avatar": absoluteOrDefault(c.Request.Host, u.Avatar),
 	})
 }
 
@@ -177,7 +220,8 @@ func (h *UserHandler) GetMyProjects(c *gin.Context) {
 }
 
 func (h *UserHandler) GetUserSummary(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
@@ -191,7 +235,8 @@ func (h *UserHandler) GetUserSummary(c *gin.Context) {
 }
 
 func (h *UserHandler) GetUserProjects(c *gin.Context) {
-	id, err := strconv.Atoi(c.Param("id"))
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return

@@ -28,6 +28,6 @@ export function Router() {
   if (parts[0] === "project" && parts[1]) return <ProjectPage projectId={parts[1]} />
   if (parts[0] === "task" && parts[1]) return <TaskPage taskId={parts[1]} />
   if (parts[0] === "profile") return <ProfilePage />
-  if ((parts[0] === "user" || parts[0] === "u") && parts[1]) return <UserProfilePage userId={parts[1]} />
+  if (parts[0] === "user" && parts[1]) return <UserProfilePage userId={parts[1]} />
   return <HomePage />
 }

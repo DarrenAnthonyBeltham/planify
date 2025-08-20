@@ -64,24 +64,32 @@ export interface CreatedTask {
   priority?: Priority | null
 }
 
-export interface PublicUser { 
-  id: number; 
-  name: string; 
-  email: string; 
-  avatar?: string | null 
+export interface PublicUser {
+  id: number
+  name: string
+  email: string
+  avatar?: string | null
 }
 
-export interface PublicUserTask { 
-  id: number; 
-  title: string; 
-  projectId: number; 
-  projectName: string 
+export interface PublicUserTask {
+  id: number
+  title: string
+  projectId: number
+  projectName: string
 }
 
-export interface PublicUserProject { 
-  id: number; 
-  name: string; 
-  description: string 
+export interface PublicUserProject {
+  id: number
+  name: string
+  description: string
+}
+
+export interface UserSummary {
+  assignedCount: number
+  collaboratorCount: number
+  commentCount: number
+  projectCount: number
+  recentActivity: { id: number; text: string; createdAt: string; taskTitle?: string | null }[]
 }
 
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080/api"
@@ -100,14 +108,19 @@ async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   if (!res.ok) {
     let msg = await res.text()
-    try { msg = JSON.parse(msg).error || msg } catch {}
+    try {
+      msg = JSON.parse(msg).error || msg
+    } catch {}
     throw new Error(msg || `Request failed: ${res.status}`)
   }
   if (res.status === 204) return undefined as unknown as T
   return res.json()
 }
 
-export interface LoginCredentials { email: string; password: string }
+export interface LoginCredentials {
+  email: string
+  password: string
+}
 
 export async function loginUser(credentials: LoginCredentials): Promise<{ token: string }> {
   const res = await fetch(`${API_BASE_URL}/login`, {
@@ -117,7 +130,9 @@ export async function loginUser(credentials: LoginCredentials): Promise<{ token:
   })
   if (!res.ok) {
     let msg = await res.text()
-    try { msg = JSON.parse(msg).error || msg } catch {}
+    try {
+      msg = JSON.parse(msg).error || msg
+    } catch {}
     throw new Error(msg || "Login failed")
   }
   const data = await res.json()
@@ -142,17 +157,22 @@ export async function fetchProjectById(id: string): Promise<any> {
       c.tasks.sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0))
       c.tasks = c.tasks.map((t: any) => {
         const commentsCount =
-          typeof t.commentsCount === "number" ? t.commentsCount :
-          typeof t.comments_count === "number" ? t.comments_count :
-          Array.isArray(t.comments) ? t.comments.length : 0
+          typeof t.commentsCount === "number"
+            ? t.commentsCount
+            : typeof t.comments_count === "number"
+            ? t.comments_count
+            : Array.isArray(t.comments)
+            ? t.comments.length
+            : 0
         const attachmentsCount =
-          typeof t.attachmentsCount === "number" ? t.attachmentsCount :
-          typeof t.attachments_count === "number" ? t.attachments_count :
-          Array.isArray(t.attachments) ? t.attachments.length : 0
-        const priority: Priority | null =
-          (t.priority as Priority | null) ??
-          (t.priority_label as Priority | null) ??
-          null
+          typeof t.attachmentsCount === "number"
+            ? t.attachmentsCount
+            : typeof t.attachments_count === "number"
+            ? t.attachments_count
+            : Array.isArray(t.attachments)
+            ? t.attachments.length
+            : 0
+        const priority: Priority | null = (t.priority as Priority | null) ?? (t.priority_label as Priority | null) ?? null
         return { ...t, commentsCount, attachmentsCount, priority }
       })
     })
@@ -162,7 +182,7 @@ export async function fetchProjectById(id: string): Promise<any> {
 
 export async function updateProjectDueDate(id: number, dueDate: string | null) {
   const body = JSON.stringify({ dueDate })
-  const p = await api<any>(`/projects/${id}/due-date`, { method: "PATCH", body })
+  const p = await api<any>(`/projects/${id}/duedate`, { method: "PATCH", body })
   if ("due_date" in p) p.dueDate = p.due_date
   return p
 }
@@ -186,7 +206,7 @@ export async function updateTaskFields(
   const saved: any = await api<TaskDetail>(`/tasks/${id}`, { method: "PATCH", body: JSON.stringify(fields) })
   return {
     ...saved,
-    priority: (saved.priority as Priority | null) ?? (saved.priority_label as Priority | null) ?? (fields.priority ?? null),
+    priority: (saved.priority as Priority | null) ?? (saved.priority_label as Priority | null) ?? fields.priority ?? null,
     assignees: saved.assignees ?? [],
     collaborators: saved.collaborators ?? [],
     attachments: saved.attachments ?? [],
@@ -195,11 +215,7 @@ export async function updateTaskFields(
 }
 
 export async function updateTaskPriority(id: string, next: Priority | null): Promise<TaskDetail> {
-  const variants = [
-    { priority: next },
-    { priority_label: next },
-    { priorityLabel: next }
-  ]
+  const variants = [{ priority: next }, { priority_label: next }, { priorityLabel: next }]
   let lastErr: unknown = null
   for (const body of variants) {
     try {
@@ -243,7 +259,11 @@ export async function uploadAttachment(taskId: string, file: File) {
   const fd = new FormData()
   fd.append("file", file)
   const token = localStorage.getItem("planify_token")
-  const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/attachments`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd })
+  const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/attachments`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: fd
+  })
   if (!res.ok) throw new Error("Upload failed")
   return res.json()
 }
@@ -274,7 +294,11 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
   const fd = new FormData()
   fd.append("file", file)
   const token = localStorage.getItem("planify_token")
-  const res = await fetch(`${API_BASE_URL}/me/avatar`, { method: "POST", headers: token ? { Authorization: `Bearer ${token}` } : undefined, body: fd })
+  const res = await fetch(`${API_BASE_URL}/me/avatar`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: fd
+  })
   if (!res.ok) throw new Error("Upload failed")
   return res.json()
 }
@@ -290,14 +314,6 @@ export async function createTask(projectId: number, statusId: number, title: str
   })
 }
 
-export async function fetchUserSummary(id: string) {
-  return api(`/users/${id}/summary`)
-}
-
-export async function fetchUserProjects(id: string) {
-  return api<Project[]>(`/users/${id}/projects`)
-}
-
 export async function fetchUserPublic(id: string | number): Promise<PublicUser> {
   return api<PublicUser>(`/users/${id}`)
 }
@@ -308,4 +324,8 @@ export async function fetchUserProjectsById(id: string | number): Promise<Public
 
 export async function fetchUserTasksById(id: string | number): Promise<PublicUserTask[]> {
   return api<PublicUserTask[]>(`/users/${id}/tasks`)
+}
+
+export async function fetchUserSummary(id: string | number): Promise<UserSummary> {
+  return api<UserSummary>(`/users/${id}/summary`)
 }

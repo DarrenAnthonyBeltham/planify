@@ -33,6 +33,13 @@ type LiteProject struct {
 	DueDate     *string `json:"dueDate"`
 }
 
+func defaultAvatar(s string) string {
+	if s == "" {
+		return "/assets/default-avatar.jpg"
+	}
+	return s
+}
+
 func (r *UserRepository) GetUserByEmail(email string) (*model.User, error) {
 	var u model.User
 	q := `
@@ -46,6 +53,7 @@ func (r *UserRepository) GetUserByEmail(email string) (*model.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	u.Avatar = defaultAvatar(u.Avatar)
 	return &u, nil
 }
 
@@ -62,6 +70,7 @@ func (r *UserRepository) GetByID(id int) (*model.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	u.Avatar = defaultAvatar(u.Avatar)
 	return &u, nil
 }
 
@@ -84,6 +93,7 @@ func (r *UserRepository) SearchUsers(query string) ([]model.User, error) {
 		if err := rows.Scan(&u.ID, &u.Name, &u.Email, &u.Avatar); err != nil {
 			return nil, err
 		}
+		u.Avatar = defaultAvatar(u.Avatar)
 		users = append(users, u)
 	}
 	return users, nil
@@ -241,7 +251,7 @@ func (r *UserRepository) GetProjectsByUserID(userID int) ([]LiteProject, error) 
 	for rows.Next() {
 		var p LiteProject
 		var desc sql.NullString
-		var due  sql.NullString
+		var due sql.NullString
 		if err := rows.Scan(&p.ID, &p.Name, &desc, &due); err != nil {
 			return nil, err
 		}

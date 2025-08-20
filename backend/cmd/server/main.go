@@ -80,6 +80,7 @@ func main() {
 			auth.GET("/me/summary", userHandler.GetMySummary)
 			auth.GET("/me/projects", userHandler.GetMyProjects)
 
+			auth.GET("/users/:id", userHandler.GetUserByID)
 			auth.GET("/users/:id/summary", userHandler.GetUserSummary)
 			auth.GET("/users/:id/projects", userHandler.GetUserProjects)
 		}
