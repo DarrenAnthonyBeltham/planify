@@ -190,7 +190,7 @@ export function ProfilePage() {
             <div className="mt-6">
               <button
                 disabled={saving}
-                className="px-4 py-2 rounded-md bg-accent text-white disabled:opacity-60"
+                className="px-4 py-2 rounded-md bg-accent text-on-accent font-semibold disabled:opacity-60"
                 onClick={async () => {
                   setSaving(true);
                   setError(null); setNotice(null);
@@ -310,7 +310,7 @@ export function ProfilePage() {
             />
             <button
               disabled={pwSaving || !pw || pw !== pw2}
-              className="mt-4 px-4 py-2 rounded-md bg-accent text-white disabled:opacity-60 w-full"
+              className="mt-4 px-4 py-2 rounded-md bg-accent text-on-accent font-semibold disabled:opacity-60 w-full"
               onClick={async () => {
                 setPwSaving(true);
                 setError(null); setNotice(null);

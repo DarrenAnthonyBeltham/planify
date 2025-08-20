@@ -345,3 +345,7 @@ export async function fetchSettings(): Promise<UserSettings> {
 export async function updateSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
   return api<UserSettings>("/settings", { method: "PATCH", body: JSON.stringify(settings) });
 }
+
+export async function fetchMySummary(): Promise<UserSummary> {
+  return api<UserSummary>("/me/summary");
+}
