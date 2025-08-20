@@ -209,7 +209,7 @@ export function Navbar({ onMenuClick, onNewProjectClick }: NavbarProps) {
         <div>
           <button
             onClick={onNewProjectClick}
-            className="flex items-center gap-2 bg-accent text-white font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity ml-4"
+            className="flex items-center gap-2 button-primary font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity ml-4"
           >
             <PlusCircle size={20} />
             <span>New Project</span>

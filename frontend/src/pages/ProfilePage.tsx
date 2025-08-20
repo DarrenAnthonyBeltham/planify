@@ -190,7 +190,7 @@ export function ProfilePage() {
             <div className="mt-6">
               <button
                 disabled={saving}
-                className="px-4 py-2 rounded-md bg-accent text-white disabled:opacity-60"
+                className="px-4 py-2 rounded-md button-primary disabled:opacity-60"
                 onClick={async () => {
                   setSaving(true)
                   setError(null); setNotice(null)

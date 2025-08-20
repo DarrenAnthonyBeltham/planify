@@ -4,15 +4,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "var(--color-bg)",
-        surface: "var(--color-surface)",
-        primary: "var(--color-text-primary)",
-        secondary: "var(--color-text-secondary)",
-        accent: "var(--color-accent)",
+        background: 'hsl(var(--color-bg) / <alpha-value>)',
+        surface: 'hsl(var(--color-surface) / <alpha-value>)',
+        primary: 'hsl(var(--color-text-primary) / <alpha-value>)',
+        secondary: 'hsl(var(--color-text-secondary) / <alpha-value>)',
+        accent: 'hsl(var(--color-accent) / <alpha-value>)',
+        board: 'hsl(var(--color-surface) / <alpha-value>)',
       },
     },
   },
-    plugins: [
-      require('tailwind-scrollbar'),
-    ],
+  plugins: [
+    require('tailwind-scrollbar'),
+  ],
 };

@@ -1,26 +1,37 @@
-// frontend/src/App.tsx
-
 import { useEffect } from "react";
-import { usedTimeBasedTheme } from "./hooks/usedTimeBasedTheme";
+import { useSettings } from "./contexts/settingsContext";
 import { AppLayout } from "./components/layout/AppLayout";
 import { useAuth } from "./contexts/authContext";
 import { LoginPage } from "./pages/LoginPage";
 import { Router } from "./components/Router";
+import { usedTimeBasedTheme, type Theme } from "./hooks/usedTimeBasedTheme";
 
 function App() {
-  const theme = usedTimeBasedTheme();
   const { token } = useAuth();
-
-  const handleProjectCreated = (newProject: any) => {
-    window.location.hash = `#/project/${newProject.id}`;
-    window.location.reload();
-  };
+  const { settings } = useSettings();
 
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove("theme-morning", "theme-afternoon", "theme-night", "theme-dawn");
-    root.classList.add(`theme-${theme}`);
-  }, [theme]);
+
+    let themeToApply: Theme | 'light' | 'dark' = 'morning';
+
+    if (settings) {
+        if (settings.appearanceTheme === 'Automatic') {
+            themeToApply = usedTimeBasedTheme();
+        } else if (settings.appearanceTheme === 'Dark') {
+            themeToApply = 'night';
+        } else {
+            themeToApply = 'morning'; 
+        }
+    }
+    
+    root.classList.add(`theme-${themeToApply}`);
+  }, [settings]);
+
+  const handleProjectCreated = (newProject: any) => {
+    window.location.hash = `#/project/${newProject.id}`;
+  };
 
   if (!token) {
     return <LoginPage />;
