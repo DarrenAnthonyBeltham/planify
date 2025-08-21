@@ -152,6 +152,7 @@ type CreateProjectPayload struct {
 	Description string  `json:"description"`
 	DueDate     *string `json:"dueDate"`
 	TeamIDs     []int   `json:"teamIds"`
+	OwnerID     int     `json:"-"`
 }
 
 func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project, error) {
@@ -160,16 +161,9 @@ func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project
 		return nil, err
 	}
 
-	var due interface{}
-	if payload.DueDate != nil && strings.TrimSpace(*payload.DueDate) != "" {
-		due = *payload.DueDate
-	} else {
-		due = nil
-	}
-
 	res, err := tx.Exec(
-		`INSERT INTO projects (name, description, due_date) VALUES (?, ?, ?)`,
-		payload.Name, payload.Description, due,
+		`INSERT INTO projects (name, description, due_date, owner_id) VALUES (?, ?, ?, ?)`,
+		payload.Name, payload.Description, payload.DueDate, payload.OwnerID,
 	)
 	if err != nil {
 		tx.Rollback()
@@ -180,9 +174,18 @@ func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project
 		tx.Rollback()
 		return nil, err
 	}
+	
+	_, err = tx.Exec(
+		`INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?)`,
+		projectID, payload.OwnerID, "owner",
+	)
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
 
 	if len(payload.TeamIDs) > 0 {
-		stmt, err := tx.Prepare(`INSERT INTO project_members (project_id, user_id) VALUES (?, ?)`)
+		stmt, err := tx.Prepare(`INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, 'member')`)
 		if err != nil {
 			tx.Rollback()
 			return nil, err
@@ -190,8 +193,10 @@ func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project
 		defer stmt.Close()
 		for _, userID := range payload.TeamIDs {
 			if _, err := stmt.Exec(projectID, userID); err != nil {
-				tx.Rollback()
-				return nil, err
+				if !strings.Contains(err.Error(), "Duplicate entry") {
+					tx.Rollback()
+					return nil, err
+				}
 			}
 		}
 	}
@@ -204,6 +209,7 @@ func (r *ProjectRepository) Create(payload CreateProjectPayload) (*model.Project
 		ID:          int(projectID),
 		Name:        payload.Name,
 		Description: payload.Description,
+		OwnerID:     &payload.OwnerID,
 	}
 	return newProject, nil
 }

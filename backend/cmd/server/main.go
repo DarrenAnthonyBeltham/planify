@@ -57,7 +57,7 @@ func main() {
 		{
 			auth.GET("/projects", projectHandler.GetAllProjects)
 			auth.GET("/projects/:id", projectHandler.GetProjectByID)
-			auth.POST("/projects", projectHandler.CreateProject)
+			auth.POST("/projects", projectHandler.Create)
 			auth.PATCH("/projects/:id/duedate", projectHandler.UpdateProjectDueDate)
 			auth.POST("/projects/:id/tasks", taskHandler.CreateTask)
 

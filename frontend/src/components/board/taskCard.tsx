@@ -1,11 +1,15 @@
-import { MessageSquare, Paperclip } from "lucide-react";
-import PrioritySelect from "./prioritySelect";
-import { updateTaskPriority, type Priority } from "../../api";
+import { MessageSquare, Paperclip, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { PriorityUpdater } from "./priorityUpdater";
+import type { Priority } from "../../api";
 
-type T = { [k: string]: any };
+interface TaskCardType {
+  id: string | number;
+  priority: Priority | null;
+  [key: string]: any;
+}
 
-export function TaskCard({ task }: { task: T }) {
+export function TaskCard({ task, canManage, onUpdate }: { task: TaskCardType; canManage: boolean; onUpdate: () => void; }) {
   const commentsCount =
     typeof task.commentsCount === "number"
       ? task.commentsCount
@@ -25,15 +29,21 @@ export function TaskCard({ task }: { task: T }) {
       <a href={`#/task/${task.id}`} className="block bg-surface rounded-lg shadow p-4 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-semibold text-primary">{task.title}</h3>
-          <div onClick={(e) => e.preventDefault()} onMouseDown={(e) => e.stopPropagation()}>
-            <PrioritySelect
-              value={(task.priority ?? null) as Priority | null}
-              onChange={async (next) => {
-                const saved = await updateTaskPriority(String(task.id), next);
-                window.dispatchEvent(new CustomEvent("planify:task-stats", { detail: { taskId: String(task.id), priority: saved.priority ?? null } }));
-              }}
-              className="text-sm"
-            />
+          <div className="flex items-center gap-2 shrink-0">
+            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }} onMouseDown={(e) => e.stopPropagation()}>
+              <PriorityUpdater task={task} />
+            </div>
+            {canManage && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="text-secondary hover:text-red-500"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
         </div>
         <div className="mt-3 flex gap-4 text-secondary text-sm">

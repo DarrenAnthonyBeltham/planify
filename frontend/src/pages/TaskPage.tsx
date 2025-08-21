@@ -70,19 +70,20 @@ export function TaskPage({ taskId }: { taskId: string }) {
                 setTask({ ...updated, assignees: updated.assignees ?? [], collaborators: updated.collaborators ?? [], attachments: updated.attachments ?? [], comments: updated.comments ?? [] });
               }}
             />
-            <PrioritySelect
-              value={task.priority ?? null}
-              onChange={async (next) => {
-                setTask(prev => prev ? { ...prev, priority: next } : prev);
-                try {
-                  const saved = await updateTaskPriority(taskId, next);
-                  setTask(prev => prev ? { ...prev, priority: saved.priority ?? null } : prev);
-                } catch (e) {
-                  setTask(prev => prev ? { ...prev, priority: task.priority ?? null } : prev);
-                }
-              }}
-              className="text-sm"
-            />
+              <PrioritySelect
+                value={task.priority ?? null}
+                onChange={async (next) => {
+                  setTask(prev => prev ? { ...prev, priority: next } : prev);
+                  try {
+                    const saved = await updateTaskPriority(taskId, next);
+                    setTask(prev => prev ? { ...prev, priority: saved.priority ?? null } : prev);
+                    window.dispatchEvent(new CustomEvent("planify:task-stats", { detail: { taskId, priority: saved.priority ?? null } }));
+                  } catch (e) {
+                    setTask(prev => prev ? { ...prev, priority: task.priority ?? null } : prev);
+                  }
+                }}
+                className="text-sm"
+              />
             <div className="flex items-center gap-4 text-secondary text-sm">
               <span className="inline-flex items-center gap-1"><MessageSquare className="w-4 h-4"/>{commentCount}</span>
               <span className="inline-flex items-center gap-1"><Paperclip className="w-4 h-4"/>{attachmentCount}</span>

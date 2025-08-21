@@ -1,11 +1,12 @@
 export type Priority = "Low" | "Medium" | "High" | "Urgent"
 
 export interface Project {
-  id: number
-  name: string
-  description: string
-  createdAt: string
-  dueDate?: string | null
+  id: number;
+  name: string;
+  description: string;
+  createdAt: string;
+  dueDate?: string | null;
+  ownerId?: number | null;
 }
 
 export interface User {

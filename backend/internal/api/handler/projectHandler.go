@@ -59,15 +59,23 @@ func (h *ProjectHandler) UpdateProjectDueDate(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Due date updated successfully"})
 }
 
-func (h *ProjectHandler) CreateProject(c *gin.Context) {
+func (h *ProjectHandler) Create(c *gin.Context) {
 	var payload repository.CreateProjectPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request payload"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	payload.OwnerID = userID.(int)
+
 	project, err := h.Repo.Create(payload)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create project"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusCreated, project)
