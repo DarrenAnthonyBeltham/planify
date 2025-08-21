@@ -25,7 +25,11 @@ export function TaskCard({ task, canManage, onUpdate }: { task: TaskCardType; ca
       : 0;
 
   return (
-    <motion.div whileHover={{ scale: 1.03 }} transition={{ duration: 0.2 }}>
+    <motion.div 
+      whileHover={{ scale: 1.03 }} 
+      transition={{ duration: 0.2 }}
+      className="w-full"
+    >
       <a href={`#/task/${task.id}`} className="block bg-surface rounded-lg shadow p-4 hover:shadow-md transition-shadow">
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-semibold text-primary">{task.title}</h3>

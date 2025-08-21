@@ -3,7 +3,7 @@ import { fetchProjectById, updateTaskPosition, createTask, type Priority } from 
 import { ProjectHeader } from "../components/board/projectHeader";
 import { BoardColumn } from "../components/board/boardColumn";
 import { DndContext, PointerSensor, useSensor, useSensors, DragOverlay } from "@dnd-kit/core";
-import type { DragEndEvent, DragOverEvent, DragStartEvent } from "@dnd-kit/core";
+import type { DragEndEvent, DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { createPortal } from "react-dom";
@@ -20,7 +20,7 @@ interface Task {
 interface Column {
   id: number;
   tasks: Task[];
-  [key: string]: any;
+  [key:string]: any;
 }
 
 const isInteractiveElement = (element: HTMLElement | null): boolean => {
@@ -35,28 +35,20 @@ const isInteractiveElement = (element: HTMLElement | null): boolean => {
 };
 
 function SortableTaskCard({ task, canManage, onUpdate }: { task: Task; canManage: boolean; onUpdate: () => void; }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: String(task.id),
-    data: {
-      type: 'TASK',
-      task,
-    }
   });
 
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
-  
+
   const customListeners = {
     ...listeners,
     onPointerDown: (event: React.PointerEvent) => {
-      if (isInteractiveElement(event.target as HTMLElement)) {
-        return;
-      }
+      if (isInteractiveElement(event.target as HTMLElement)) return;
       listeners?.onPointerDown?.(event);
     },
     onKeyDown: (event: React.KeyboardEvent) => {
-       if (isInteractiveElement(event.target as HTMLElement)) {
-        return;
-      }
+      if (isInteractiveElement(event.target as HTMLElement)) return;
       listeners?.onKeyDown?.(event);
     }
   };
@@ -74,7 +66,7 @@ export function ProjectPage({ projectId }: { projectId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const { user } = useAuth();
-  
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const getProjectData = useCallback(() => {
@@ -88,64 +80,26 @@ export function ProjectPage({ projectId }: { projectId: string }) {
   useEffect(() => {
     getProjectData();
   }, [getProjectData]);
-  
+
   const columns = useMemo(() => project?.columns ?? [], [project]);
-  
-  const tasks = useMemo(() => {
-    const taskMap = new Map<string, Task>();
-    columns.forEach((col: Column) => {
-      col.tasks.forEach((task: Task) => {
-        taskMap.set(String(task.id), task);
-      });
-    });
-    return taskMap;
-  }, [columns]);
 
   const findColumnByTaskId = (taskId: string) => {
     return columns.find(col => col.tasks.some((task: Task) => String(task.id) === taskId));
   };
 
   const onDragStart = (event: DragStartEvent) => {
-    const task = tasks.get(String(event.active.id));
+    const task = columns.flatMap(col => col.tasks).find(t => String(t.id) === event.active.id);
     if (task) setActiveTask(task);
   };
 
-  const onDragOver = (event: DragOverEvent) => {
-    const { active, over } = event;
-    if (!over) return;
-    const activeId = String(active.id);
-    const overId = String(over.id);
-
-    const activeColumn = findColumnByTaskId(activeId);
-    let overColumn = findColumnByTaskId(overId);
-    if (!overColumn) {
-      overColumn = columns.find(col => String(col.id) === overId);
-    }
-    
-    if (!activeColumn || !overColumn || activeColumn.id === overColumn.id) return;
-
-    setProject((prev) => {
-      if (!prev) return null;
-      const activeTaskIndex = activeColumn.tasks.findIndex((t: Task) => String(t.id) === activeId);
-      if (activeTaskIndex === -1) return prev;
-
-      const [movedTask] = activeColumn.tasks.splice(activeTaskIndex, 1);
-      overColumn.tasks.push(movedTask);
-      
-      return { ...prev };
-    });
-  };
-
-  const onDragEnd = async (event: DragEndEvent) => {
+  const onDragEnd = (event: DragEndEvent) => {
     setActiveTask(null);
     const { active, over } = event;
-    if (!over || !project) {
-        getProjectData();
-        return;
-    };
-    
+    if (!over) return;
+
     const activeId = String(active.id);
     const overId = String(over.id);
+    if (activeId === overId) return;
 
     const activeColumn = findColumnByTaskId(activeId);
     let overColumn = findColumnByTaskId(overId);
@@ -153,39 +107,57 @@ export function ProjectPage({ projectId }: { projectId: string }) {
       overColumn = columns.find(col => String(col.id) === overId);
     }
 
-    if (!activeColumn || !overColumn) {
-        getProjectData();
-        return;
-    }
+    if (!activeColumn || !overColumn) return;
 
-    if (activeColumn.id === overColumn.id) {
-      const oldIndex = activeColumn.tasks.findIndex((t: Task) => String(t.id) === activeId);
-      const newIndex = activeColumn.tasks.findIndex((t: Task) => String(t.id) === overId);
-      if (oldIndex !== newIndex) {
-        setProject((prev) => {
-            if (!prev) return null;
-            const updatedTasks = arrayMove(activeColumn.tasks, oldIndex, newIndex);
-            const newColumns = prev.columns.map((col: Column) => 
-              col.id === activeColumn.id ? { ...col, tasks: updatedTasks } : col
-            );
-            return { ...prev, columns: newColumns };
+    setProject(prev => {
+      if (!prev) return null;
+
+      if (activeColumn.id === overColumn.id) {
+        const activeIndex = activeColumn.tasks.findIndex(t => String(t.id) === activeId);
+        const overIndex = overColumn.tasks.findIndex(t => String(t.id) === overId);
+        
+        if (activeIndex !== overIndex) {
+          const newTasksInColumn = arrayMove(activeColumn.tasks, activeIndex, overIndex);
+          const newColumns = prev.columns.map(col => 
+            col.id === activeColumn.id ? { ...col, tasks: newTasksInColumn } : col
+          );
+          updateTaskPosition(activeId, String(activeColumn.id), overIndex);
+          return { ...prev, columns: newColumns };
+        }
+      } else {
+        const activeIndex = activeColumn.tasks.findIndex(t => String(t.id) === activeId);
+        const [movedTask] = activeColumn.tasks.slice(activeIndex, activeIndex + 1);
+
+        let overIndex = overColumn.tasks.findIndex(t => String(t.id) === overId);
+        if (overIndex === -1) {
+          overIndex = overColumn.tasks.length;
+        }
+
+        const newActiveColumnTasks = activeColumn.tasks.filter(t => String(t.id) !== activeId);
+        const newOverColumnTasks = [
+          ...overColumn.tasks.slice(0, overIndex),
+          movedTask,
+          ...overColumn.tasks.slice(overIndex)
+        ];
+        
+        const newColumns = prev.columns.map(col => {
+          if (col.id === activeColumn.id) return { ...col, tasks: newActiveColumnTasks };
+          if (col.id === overColumn.id) return { ...col, tasks: newOverColumnTasks };
+          return col;
         });
-        await updateTaskPosition(activeId, String(activeColumn.id), newIndex);
+
+        updateTaskPosition(activeId, String(overColumn.id), overIndex);
+        return { ...prev, columns: newColumns };
       }
-    } else {
-      const newIndex = overColumn.tasks.findIndex((t: Task) => String(t.id) === activeId);
-      if (newIndex !== -1) {
-        await updateTaskPosition(activeId, String(overColumn.id), newIndex);
-      }
-    }
-    getProjectData();
+      return prev;
+    });
   };
 
   const handleAddTask = useCallback(async (statusId: string | number, title: string) => {
     await createTask(Number(projectId), Number(statusId), title);
     getProjectData();
   }, [projectId, getProjectData]);
-  
+
   const canManage = user && project && user.id === project.ownerId;
 
   if (loading) return <div className="p-4 md:p-8 text-center text-secondary">Loading project…</div>;
@@ -203,12 +175,11 @@ export function ProjectPage({ projectId }: { projectId: string }) {
       {canManage && (
         <div className="mt-4">
             <button className="flex items-center gap-2 px-3 py-2 rounded-md bg-surface border border-secondary/20 text-sm text-primary">
-                <Settings className="w-4 h-4"/>
-                Project Settings
+                <Settings className="w-4 h-4"/> Project Settings
             </button>
         </div>
       )}
-      <DndContext sensors={sensors} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd}>
+      <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="flex flex-col md:flex-row gap-4 overflow-x-auto py-4 scrollbar-hide">
           {columns.map((col: Column) => (
             <BoardColumn key={col.id} column={col} onAddTask={handleAddTask}>
@@ -220,7 +191,10 @@ export function ProjectPage({ projectId }: { projectId: string }) {
             </BoardColumn>
           ))}
         </div>
-        {createPortal(<DragOverlay>{activeTask ? <TaskCard task={activeTask} canManage={!!canManage} onUpdate={getProjectData}/> : null}</DragOverlay>, document.body)}
+        {createPortal(
+          <DragOverlay>{activeTask ? <TaskCard task={activeTask} canManage={!!canManage} onUpdate={getProjectData}/> : null}</DragOverlay>,
+          document.body
+        )}
       </DndContext>
     </div>
   );
