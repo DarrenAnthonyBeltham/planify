@@ -4,6 +4,7 @@ import { ProjectPage } from "../pages/ProjectPage";
 import { MyTasksPage } from "../pages/MyTasksPage";
 import { TaskPage } from "../pages/TaskPage";
 import { LoginPage } from "../pages/LoginPage";
+import { RegisterPage } from "../pages/RegisterPage";
 import { ProfilePage } from "../pages/ProfilePage";
 import { UserProfilePage } from "../pages/userProfilePages";
 import { SettingsPage } from "../pages/SettingsPage";
@@ -25,6 +26,7 @@ export function Router() {
 
   const renderPage = () => {
     if (parts[0] === "login") return token ? <HomePage /> : <LoginPage />;
+    if (parts[0] === "register") return token ? <HomePage /> : <RegisterPage />;
     if (!token) return <LoginPage />;
     if (!parts[0] || parts[0] === "") return <HomePage />;
     if (parts[0] === "mytasks") return <MyTasksPage />;

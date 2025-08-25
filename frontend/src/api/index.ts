@@ -101,6 +101,12 @@ export interface UserSettings {
   appearanceTheme: 'Automatic' | 'Light' | 'Dark';
 }
 
+export interface RegisterCredentials {
+  name: string;
+  email: string;
+  password: string;
+}
+
 const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080/api"
 
 async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -147,6 +153,22 @@ export async function loginUser(credentials: LoginCredentials): Promise<{ token:
   const data = await res.json()
   if (data?.token) localStorage.setItem("planify_token", data.token)
   return data
+}
+
+export async function registerUser(credentials: RegisterCredentials): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE_URL}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(credentials)
+  });
+  if (!res.ok) {
+    let msg = await res.text();
+    try {
+      msg = JSON.parse(msg).error || msg;
+    } catch {}
+    throw new Error(msg || "Registration failed");
+  }
+  return res.json();
 }
 
 export async function fetchProjects() {
